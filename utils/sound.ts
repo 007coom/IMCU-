@@ -64,62 +64,64 @@ class SoundManager {
 
   startAmbience() {
     if (!this.ctx || !this.masterGain) return;
+    const ctx = this.ctx;
+    const masterGain = this.masterGain;
 
     // Clear existing if restarting
     this.ambienceNodes.forEach(n => n.disconnect());
     this.ambienceNodes = [];
 
-    const t = this.ctx.currentTime;
+    const t = ctx.currentTime;
 
     // 1. Low Rumble (Brownian-ish noise via Filter)
     const noiseBuffer = this.createNoiseBuffer();
     if (!noiseBuffer) return;
 
-    const noiseSource = this.ctx.createBufferSource();
+    const noiseSource = ctx.createBufferSource();
     noiseSource.buffer = noiseBuffer;
     noiseSource.loop = true;
 
-    const noiseFilter = this.ctx.createBiquadFilter();
+    const noiseFilter = ctx.createBiquadFilter();
     noiseFilter.type = 'lowpass';
     noiseFilter.frequency.value = 120; // Deep rumble
 
-    const noiseGain = this.ctx.createGain();
+    const noiseGain = ctx.createGain();
     noiseGain.gain.value = 0.15;
 
     noiseSource.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(this.masterGain);
+    noiseGain.connect(masterGain);
     noiseSource.start(t);
     this.ambienceNodes.push(noiseSource);
 
     // 2. High Static/Hiss (Simulate tape/radio floor)
-    const hissSource = this.ctx.createBufferSource();
+    const hissSource = ctx.createBufferSource();
     hissSource.buffer = noiseBuffer;
     hissSource.loop = true;
 
-    const hissFilter = this.ctx.createBiquadFilter();
+    const hissFilter = ctx.createBiquadFilter();
     hissFilter.type = 'highpass';
     hissFilter.frequency.value = 8000;
 
-    const hissGain = this.ctx.createGain();
+    const hissGain = ctx.createGain();
     hissGain.gain.value = 0.02;
 
     hissSource.connect(hissFilter);
     hissFilter.connect(hissGain);
-    hissGain.connect(this.masterGain);
+    hissGain.connect(masterGain);
     hissSource.start(t);
     this.ambienceNodes.push(hissSource);
 
     // 3. Mains Hum (60Hz)
-    const osc = this.ctx.createOscillator();
+    const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.value = 60;
     
-    const oscGain = this.ctx.createGain();
+    const oscGain = ctx.createGain();
     oscGain.gain.value = 0.05;
 
     osc.connect(oscGain);
-    oscGain.connect(this.masterGain);
+    oscGain.connect(masterGain);
     osc.start(t);
     this.ambienceNodes.push(osc);
   }
@@ -127,20 +129,22 @@ class SoundManager {
   playBootSequence() {
     this.resume(); // Ensure context is running
     if (!this.ctx || !this.masterGain) return;
-    const t = this.ctx.currentTime;
+    const ctx = this.ctx;
+    const masterGain = this.masterGain;
+    const t = ctx.currentTime;
 
     // Rising Tone
-    const osc = this.ctx.createOscillator();
+    const osc = ctx.createOscillator();
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(100, t);
     osc.frequency.exponentialRampToValueAtTime(2000, t + 0.8);
 
-    const gain = this.ctx.createGain();
+    const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.3, t);
     gain.gain.exponentialRampToValueAtTime(0.01, t + 0.8);
 
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(masterGain);
     osc.start(t);
     osc.stop(t + 0.8);
   }
@@ -148,29 +152,31 @@ class SoundManager {
   playKeystroke() {
     this.resume();
     if (!this.ctx || !this.masterGain) return;
-    const t = this.ctx.currentTime;
+    const ctx = this.ctx;
+    const masterGain = this.masterGain;
+    const t = ctx.currentTime;
 
     // Short click (Noise burst)
     const noiseBuffer = this.createNoiseBuffer();
     if (!noiseBuffer) return;
 
-    const source = this.ctx.createBufferSource();
+    const source = ctx.createBufferSource();
     source.buffer = noiseBuffer;
     
     // Varies pitch slightly for realism
     source.playbackRate.value = 0.8 + Math.random() * 0.4;
 
-    const filter = this.ctx.createBiquadFilter();
+    const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass';
     filter.frequency.value = 2000;
 
-    const gain = this.ctx.createGain();
+    const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.1, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
 
     source.connect(filter);
     filter.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(masterGain);
     
     source.start(t);
     source.stop(t + 0.05);
@@ -179,19 +185,21 @@ class SoundManager {
   playLoginFail() {
     this.resume();
     if (!this.ctx || !this.masterGain) return;
-    const t = this.ctx.currentTime;
+    const ctx = this.ctx;
+    const masterGain = this.masterGain;
+    const t = ctx.currentTime;
 
-    const osc = this.ctx.createOscillator();
+    const osc = ctx.createOscillator();
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(150, t);
     osc.frequency.linearRampToValueAtTime(100, t + 0.3);
 
-    const gain = this.ctx.createGain();
+    const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.3, t);
     gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
 
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(masterGain);
     
     osc.start(t);
     osc.stop(t + 0.3);
@@ -200,20 +208,22 @@ class SoundManager {
   playLoginSuccess() {
     this.resume();
     if (!this.ctx || !this.masterGain) return;
-    const t = this.ctx.currentTime;
+    const ctx = this.ctx;
+    const masterGain = this.masterGain;
+    const t = ctx.currentTime;
 
     // Arpeggio
     [440, 554, 659].forEach((freq, i) => {
-      const osc = this.ctx.createOscillator();
+      const osc = ctx.createOscillator();
       osc.type = 'square';
       osc.frequency.value = freq;
       
-      const gain = this.ctx.createGain();
+      const gain = ctx.createGain();
       gain.gain.setValueAtTime(0.1, t + i * 0.1);
       gain.gain.exponentialRampToValueAtTime(0.01, t + i * 0.1 + 0.4);
 
       osc.connect(gain);
-      gain.connect(this.masterGain);
+      gain.connect(masterGain);
       
       osc.start(t + i * 0.1);
       osc.stop(t + i * 0.1 + 0.4);
@@ -223,18 +233,20 @@ class SoundManager {
   playEnter() {
     this.resume();
     if (!this.ctx || !this.masterGain) return;
-    const t = this.ctx.currentTime;
+    const ctx = this.ctx;
+    const masterGain = this.masterGain;
+    const t = ctx.currentTime;
 
-    const osc = this.ctx.createOscillator();
+    const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(600, t);
     
-    const gain = this.ctx.createGain();
+    const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.1, t);
     gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
 
     osc.connect(gain);
-    gain.connect(this.masterGain);
+    gain.connect(masterGain);
 
     osc.start(t);
     osc.stop(t + 0.1);
