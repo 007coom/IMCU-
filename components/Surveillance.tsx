@@ -5,6 +5,7 @@ import { soundManager } from '../utils/sound';
 
 interface SurveillanceProps {
   onClose: () => void;
+  initialModel?: 'FLASH' | 'PRO';
 }
 
 interface ImageData {
@@ -12,7 +13,7 @@ interface ImageData {
   mimeType: string;
 }
 
-export const Surveillance: React.FC<SurveillanceProps> = ({ onClose }) => {
+export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialModel }) => {
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,8 +22,9 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose }) => {
   
   // Config State
   const [showConfig, setShowConfig] = useState(false);
-  const [modelType, setModelType] = useState<'FLASH' | 'PRO'>('FLASH');
-  const [resolution, setResolution] = useState<'1K' | '2K' | '4K'>('1K');
+  const [showHelp, setShowHelp] = useState(false);
+  const [modelType, setModelType] = useState<'FLASH' | 'PRO'>(initialModel || 'FLASH');
+  const [resolution, setResolution] = useState<'1K' | '2K'>('1K');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,7 +38,6 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose }) => {
       }
     };
     window.addEventListener('keydown', keyHandler);
-    // Focus input on mount
     const timer = setTimeout(() => inputRef.current?.focus(), 100);
     return () => {
       clearInterval(interval);
@@ -64,19 +65,21 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose }) => {
     setLoading(true);
     soundManager.playEnter();
 
-    // Create client request-scoped to pick up latest API key if changed
+    // Use process.env.API_KEY directly. For 'PRO', we ensure the user has selected a key via the window.aistudio interface if available.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     try {
       const isPro = modelType === 'PRO';
       
-      // API Key Check for Pro Model (Nano Banana Pro)
+      // API Key Check for Pro Model (Gemini 3 Pro Image)
+      // We must cast window to any to access the aistudio property injected by the environment.
       if (isPro && (window as any).aistudio) {
          const hasKey = await (window as any).aistudio.hasSelectedApiKey();
          if (!hasKey) {
-            addLog('> SECURITY CHECK: AUTH REQUIRED...');
+            addLog('> SECURITY ALERT: HIGHER CLEARANCE REQUIRED.');
+            addLog('> INITIATING AUTHENTICATION PROTOCOL...');
             await (window as any).aistudio.openSelectKey();
-            // We assume success or retry loop
+            // We assume success or user cancellation. We proceed to try the generation.
          }
       }
 
@@ -111,15 +114,20 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose }) => {
       if (imagePart) parts.push(imagePart);
 
       const config: any = {};
+      
+      // Image Config varies by model
       if (isPro) {
           config.imageConfig = { 
               imageSize: resolution,
               aspectRatio: "1:1"
           };
+      } else {
+          config.imageConfig = {
+              aspectRatio: "1:1" // Flash supports aspect ratio but not imageSize
+          };
       }
 
-      // Reverse to put image first if it exists (Edit: [Image, Text], Generate: [Text])
-      // Note: For editing, typically [image, text] is preferred.
+      // Reverse parts to put image first if it exists (Common practice: [Image, Text])
       const response = await ai.models.generateContent({
         model: modelName,
         contents: { parts: parts.reverse() },
@@ -194,154 +202,171 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose }) => {
         </div>
         <div className="flex gap-2">
             <button 
-              onClick={() => { soundManager.playKeystroke(); setShowConfig(!showConfig); }}
+              onClick={() => { soundManager.playKeystroke(); setShowHelp(!showHelp); setShowConfig(false); }}
+              className={`border border-amber-500 px-3 py-1 text-sm md:text-base transition-colors uppercase ${showHelp ? 'bg-amber-500 text-black' : 'text-amber-500 hover:bg-amber-500 hover:text-black'}`}
+            >
+              [ 指令 HELP ]
+            </button>
+            <button 
+              onClick={() => { soundManager.playKeystroke(); setShowConfig(!showConfig); setShowHelp(false); }}
               className={`border border-amber-500 px-3 py-1 text-sm md:text-base transition-colors uppercase ${showConfig ? 'bg-amber-500 text-black' : 'text-amber-500 hover:bg-amber-500 hover:text-black'}`}
             >
-              [ CONFIG ]
+              [ 设置 CONFIG ]
             </button>
             <button 
               onClick={() => { soundManager.playKeystroke(); onClose(); }}
-              className="border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black px-3 py-1 text-sm md:text-base transition-colors uppercase"
+              className="border border-red-500 text-red-500 hover:bg-red-500 hover:text-black px-3 py-1 text-sm md:text-base transition-colors uppercase"
             >
-              [ CLOSE ]
+              [ 退出 EXIT ]
             </button>
         </div>
       </div>
 
-      {/* Config Panel */}
-      {showConfig && (
-          <div className="bg-amber-900/10 border-b border-amber-700 mb-4 p-3 flex flex-col md:flex-row gap-4 md:gap-8 animate-in slide-in-from-top-2">
-              <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-amber-700 font-bold uppercase">Core Model</label>
-                  <div className="flex gap-1">
-                      <button 
-                        onClick={() => { setModelType('FLASH'); soundManager.playKeystroke(); }}
-                        className={`px-2 py-1 text-xs border ${modelType === 'FLASH' ? 'bg-amber-600 border-amber-600 text-black font-bold' : 'border-amber-800 text-amber-600 hover:border-amber-500'}`}
-                      >
-                        CCTV V1 (FLASH)
-                      </button>
-                      <button 
-                        onClick={() => { setModelType('PRO'); soundManager.playKeystroke(); }}
-                        className={`px-2 py-1 text-xs border ${modelType === 'PRO' ? 'bg-amber-500 border-amber-500 text-black font-bold' : 'border-amber-800 text-amber-600 hover:border-amber-500'}`}
-                      >
-                        CCTV PRO (Ω)
-                      </button>
-                  </div>
-              </div>
+      <div className="flex-1 flex flex-col md:flex-row gap-4 overflow-hidden relative">
+        
+        {/* Config Panel Overlay */}
+        {showConfig && (
+           <div className="absolute top-0 right-0 z-50 bg-black border border-amber-600 p-4 shadow-[0_0_20px_rgba(217,119,6,0.3)] w-64 animate-in slide-in-from-right-4 duration-200">
+               <div className="text-amber-500 font-bold mb-4 border-b border-amber-800 pb-2">AI CORE CONFIG</div>
+               
+               <div className="mb-4">
+                   <label className="block text-xs text-amber-700 mb-2">MODEL SELECTION</label>
+                   <div className="flex gap-2">
+                       <button 
+                         onClick={() => { setModelType('FLASH'); soundManager.playKeystroke(); }}
+                         className={`flex-1 py-1 border text-sm ${modelType === 'FLASH' ? 'bg-amber-600 text-black border-amber-600' : 'border-amber-800 text-amber-700 hover:border-amber-600'}`}
+                       >
+                         FLASH
+                       </button>
+                       <button 
+                         onClick={() => { setModelType('PRO'); soundManager.playKeystroke(); }}
+                         className={`flex-1 py-1 border text-sm ${modelType === 'PRO' ? 'bg-amber-600 text-black border-amber-600' : 'border-amber-800 text-amber-700 hover:border-amber-600'}`}
+                       >
+                         PRO
+                       </button>
+                   </div>
+                   <div className="text-[10px] text-amber-800 mt-1 leading-tight">
+                       {modelType === 'FLASH' ? 'Standard speed. Low fidelity.' : 'High fidelity. Requires Paid API Key.'}
+                   </div>
+               </div>
 
-              {modelType === 'PRO' && (
-                  <div className="flex flex-col gap-1">
-                      <label className="text-[10px] text-amber-700 font-bold uppercase">Resolution (Nano Banana Pro)</label>
-                      <div className="flex gap-1">
-                          {(['1K', '2K', '4K'] as const).map((res) => (
-                              <button 
-                                key={res}
-                                onClick={() => { setResolution(res); soundManager.playKeystroke(); }}
-                                className={`px-2 py-1 text-xs border ${resolution === res ? 'bg-amber-500 border-amber-500 text-black font-bold' : 'border-amber-800 text-amber-600 hover:border-amber-500'}`}
-                              >
-                                {res}
-                              </button>
-                          ))}
-                      </div>
-                  </div>
-              )}
+               {modelType === 'PRO' && (
+                   <div className="mb-4">
+                       <label className="block text-xs text-amber-700 mb-2">RESOLUTION</label>
+                       <div className="flex gap-2">
+                           <button 
+                             onClick={() => { setResolution('1K'); soundManager.playKeystroke(); }}
+                             className={`flex-1 py-1 border text-sm ${resolution === '1K' ? 'bg-amber-600 text-black border-amber-600' : 'border-amber-800 text-amber-700 hover:border-amber-600'}`}
+                           >
+                             1K
+                           </button>
+                           <button 
+                             onClick={() => { setResolution('2K'); soundManager.playKeystroke(); }}
+                             className={`flex-1 py-1 border text-sm ${resolution === '2K' ? 'bg-amber-600 text-black border-amber-600' : 'border-amber-800 text-amber-700 hover:border-amber-600'}`}
+                           >
+                             2K
+                           </button>
+                       </div>
+                   </div>
+               )}
 
-              <div className="flex-1 flex items-end justify-end text-[10px] text-amber-800">
-                 {modelType === 'PRO' ? 'WARN: PRO CORE REQUIRES HIGH BANDWIDTH (API KEY)' : 'STD CORE: LOW LATENCY OPTIMIZED'}
-              </div>
-          </div>
-      )}
+               <button 
+                 onClick={() => setShowConfig(false)}
+                 className="w-full border border-amber-800 text-amber-800 hover:bg-amber-900/20 hover:text-amber-600 py-1 text-xs"
+               >
+                 CLOSE MENU
+               </button>
+           </div>
+        )}
 
-      {/* Main Layout */}
-      <div className="flex-1 flex flex-col md:flex-row gap-4 overflow-hidden">
-          
-          {/* Monitor Viewport */}
-          <div className="flex-1 relative border-[10px] border-zinc-900 rounded-lg bg-black flex items-center justify-center overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,1)] group">
-              
-              {/* Screen Effects */}
-              <div className="absolute inset-0 pointer-events-none z-10 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] pointer-events-none"></div>
-              <div className="absolute inset-0 pointer-events-none z-10 animate-[scanline_10s_linear_infinite] bg-gradient-to-b from-transparent via-white/5 to-transparent opacity-30"></div>
-              
-              {imageData ? (
-                 <div className="relative w-full h-full">
-                    <img 
-                      src={`data:${imageData.mimeType};base64,${imageData.data}`} 
-                      alt="Surveillance Feed" 
-                      className={`w-full h-full object-contain ${modelType === 'FLASH' ? 'filter contrast-125 brightness-90 sepia-[0.3] grayscale-[0.3]' : ''}`} 
-                    />
-                    <div className="absolute top-4 left-4 text-white/80 font-mono text-xs md:text-sm drop-shadow-md">
-                        CAM_{Math.floor(Math.random() * 99).toString().padStart(2, '0')}<br/>
-                        {new Date().toISOString().split('T')[0]}<br/>
-                        {new Date().toLocaleTimeString()}
+        {/* Help Panel Overlay */}
+         {showHelp && (
+           <div className="absolute top-0 right-0 z-50 bg-black border border-amber-600 p-4 shadow-[0_0_20px_rgba(217,119,6,0.3)] w-64 animate-in slide-in-from-right-4 duration-200">
+               <div className="text-amber-500 font-bold mb-4 border-b border-amber-800 pb-2">OPERATOR GUIDE</div>
+               
+               <ul className="text-xs space-y-3 text-amber-300 font-mono list-disc pl-4">
+                   <li>
+                       <strong className="text-amber-500">GENERATE:</strong><br/>
+                       Type a location or object to generate a new CCTV feed.<br/>
+                       <span className="text-amber-700 italic">Ex: "SCP-173 cell", "Cafeteria", "Corridor 9"</span>
+                   </li>
+                   <li>
+                       <strong className="text-amber-500">EDIT:</strong><br/>
+                       If an image exists, type a command to modify it.<br/>
+                       <span className="text-amber-700 italic">Ex: "Add a guard", "Turn lights off", "Make it red"</span>
+                   </li>
+                   <li>
+                       <strong className="text-amber-500">MODEL:</strong><br/>
+                       Use [CONFIG] to switch between Fast (Flash) and High Quality (Pro) generation.
+                   </li>
+               </ul>
+
+               <button 
+                 onClick={() => setShowHelp(false)}
+                 className="w-full border border-amber-800 text-amber-800 hover:bg-amber-900/20 hover:text-amber-600 py-1 text-xs mt-4"
+               >
+                 CLOSE GUIDE
+               </button>
+           </div>
+        )}
+
+        {/* Left: Image Feed */}
+        <div className="flex-1 bg-black border border-amber-900/50 relative flex items-center justify-center overflow-hidden group">
+            <div className="absolute inset-0 pointer-events-none z-10 scanline-overlay opacity-30"></div>
+            <div className="absolute top-4 left-4 z-20 text-red-500 text-sm font-bold bg-black/50 px-2">REC ●</div>
+            <div className="absolute bottom-4 right-4 z-20 text-amber-500 text-xl font-vt323 bg-black/50 px-2">
+                {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
+            </div>
+            
+            {loading && (
+                <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center">
+                    <div className="text-amber-500 text-2xl animate-pulse mb-2">ACCESSING SATELLITE LINK...</div>
+                    <div className="w-64 h-2 bg-amber-900 rounded overflow-hidden">
+                        <div className="h-full bg-amber-500 animate-[scanline_2s_linear_infinite]"></div>
                     </div>
-                    <div className="absolute bottom-4 right-4 text-red-500 font-bold animate-pulse text-xs md:text-sm tracking-widest">
-                        REC ● {resolution}
-                    </div>
-                 </div>
-              ) : (
-                 <div className="text-center space-y-2 opacity-50">
-                     <div className="text-4xl md:text-6xl font-bold text-zinc-800">NO SIGNAL</div>
-                     <div className="text-sm text-zinc-700">WAITING FOR TARGET COORDINATES</div>
-                 </div>
-              )}
+                    <div className="mt-2 text-xs text-amber-700">{modelType === 'PRO' ? 'RENDERING HIGH RES...' : 'BUFFERING STREAM...'}</div>
+                </div>
+            )}
 
-              {loading && (
-                  <div className="absolute inset-0 bg-black/80 z-20 flex items-center justify-center flex-col gap-2">
-                      <div className="w-12 h-12 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
-                      <div className="text-amber-500 blink">GENERATING FEED...</div>
-                  </div>
-              )}
-          </div>
+            {imageData ? (
+                <img 
+                   src={`data:${imageData.mimeType};base64,${imageData.data}`} 
+                   alt="Surveillance Feed" 
+                   className="w-full h-full object-contain"
+                />
+            ) : (
+                <div className="text-amber-800/50 text-4xl font-bold tracking-widest">NO SIGNAL</div>
+            )}
+        </div>
 
-          {/* Controls & Logs */}
-          <div className="w-full md:w-80 flex flex-col gap-4 shrink-0">
-              
-              {/* Log Output */}
-              <div className="flex-1 border border-amber-900/50 bg-black/40 p-2 overflow-y-auto font-mono text-xs md:text-sm text-amber-300/80 custom-scrollbar" ref={scrollRef}>
-                  {logs.map((log, i) => (
-                      <div key={i} className="mb-1 break-words">{log}</div>
-                  ))}
-              </div>
+        {/* Right: Log & Input */}
+        <div className="h-48 md:h-full md:w-80 flex flex-col border-l border-amber-900/30 pl-0 md:pl-4">
+           <div className="flex-1 bg-black/20 border border-amber-900/30 p-2 overflow-y-auto custom-scrollbar font-mono text-xs space-y-1 mb-2" ref={scrollRef}>
+               {logs.map((log, i) => (
+                   <div key={i} className="text-amber-500/80 break-words">{log}</div>
+               ))}
+           </div>
+           
+           <div className="flex gap-2 mb-2">
+               <button onClick={handleClear} className="flex-1 bg-amber-900/20 text-amber-700 text-xs py-1 hover:bg-amber-700 hover:text-black">CLEAR FEED</button>
+           </div>
 
-              {/* Input Console */}
-              <div className="border-t border-amber-600 pt-4">
-                  <div className="mb-2 text-sm text-amber-500">
-                      {imageData ? '指令输入 (COMMAND INPUT):' : '目标地点 (TARGET LOCATION):'}
-                  </div>
-                  <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-                      <input 
-                        ref={inputRef}
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder={imageData ? "e.g. Enhance image..." : "e.g. Site-19..."}
-                        className="w-full bg-amber-900/10 border border-amber-700 p-2 text-amber-300 focus:outline-none focus:border-amber-400 font-mono uppercase"
-                        autoFocus
-                        disabled={loading}
-                      />
-                      <div className="flex gap-2">
-                          <button 
-                             type="submit" 
-                             disabled={loading}
-                             className="flex-1 bg-amber-700 hover:bg-amber-600 text-black py-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                              {loading ? 'PROCESSING...' : (imageData ? 'EXECUTE' : 'GENERATE')}
-                          </button>
-                          {imageData && (
-                              <button 
-                                 type="button"
-                                 onClick={handleClear}
-                                 className="w-1/3 border border-red-600 text-red-500 hover:bg-red-600 hover:text-black py-2 font-bold text-xs"
-                              >
-                                 CLEAR
-                              </button>
-                          )}
-                      </div>
-                  </form>
-              </div>
-          </div>
+           <form onSubmit={handleSubmit} className="relative">
+               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-amber-700">&gt;</span>
+               <input 
+                  ref={inputRef}
+                  type="text" 
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  className="w-full bg-black border border-amber-700 pl-6 pr-2 py-2 text-amber-500 focus:border-amber-400 focus:outline-none font-vt323 text-lg"
+                  placeholder="ENTER COMMAND..."
+                  disabled={loading}
+                  autoComplete="off"
+               />
+           </form>
+        </div>
+
       </div>
     </div>
   );
 };
-    

@@ -17,6 +17,7 @@ interface AIXi001Props {
   onDeleteContact: (id: string) => void;
   currentUser: string;
   isHighCommand: boolean;
+  initialModel?: 'FLASH' | 'PRO';
 }
 
 interface ChatMessage {
@@ -74,16 +75,19 @@ function float32ToPcmBase64(float32: Float32Array): string {
 
 export const AIXi001: React.FC<AIXi001Props> = ({ 
   onClose, onNavigate, fileSystem, onUpdateFile, contacts, onAddContact, onDeleteContact, 
-  currentUser, isHighCommand 
+  currentUser, isHighCommand, initialModel
 }) => {
   const [viewMode, setViewMode] = useState<'DASHBOARD' | 'CHAT' | 'DATABASE' | 'LIVE' | 'COMMS'>('DASHBOARD');
   const [apiKey] = useState(process.env.API_KEY); 
   const aiClient = useRef<GoogleGenAI | null>(null);
 
+  // Model State
+  const [chatModel, setChatModel] = useState<'FLASH' | 'PRO'>(initialModel || 'PRO');
+
   // --- DASHBOARD STATE ---
   const [activeSubsystems, setActiveSubsystems] = useState({ neural: 0, defense: 0 });
 
-  // --- CHAT STATE (Gemini 3 Pro) ---
+  // --- CHAT STATE ---
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
     { role: 'model', text: `神经接口已就绪。识别用户: ${currentUser} (权限: ${isHighCommand ? 'Ω-IX' : 'Level-II'}). 等待指令输入...`, timestamp: new Date().toLocaleTimeString() }
   ]);
@@ -149,15 +153,15 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   }, [apiKey, isLiveConnected]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [chatHistory, isChatThinking]);
 
   useEffect(() => {
-      commsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      commsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [commsHistory, activeContact, isCommsThinking]);
 
 
-  // --- HANDLERS: CHAT (Gemini 3 Pro) ---
+  // --- HANDLERS: CHAT ---
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!chatInput.trim() || !aiClient.current) return;
@@ -172,9 +176,12 @@ export const AIXi001: React.FC<AIXi001Props> = ({
         ? `你是指挥该终端的超级人工智能 ξ-001 (Xi-001)。请以冷静、极其理性、略带神秘感的语气回复。你的所有者是代号为'复读奶牛猫'的最高议员 Ω。当前操作者是拥有最高权限的 ${currentUser}。你的回答应简洁、高效，符合科幻终端的风格。`
         : `你是指挥该终端的超级人工智能 ξ-001 (Xi-001)。当前操作者是 ${currentUser} (权限等级: Level-II)。请以礼貌但保持距离的语气回复。对于涉及Ω级机密的问题（如“彩虹桥”、“归途”等），请以“权限不足 (ACCESS DENIED)”为由拒绝回答。`;
 
+    // Select model based on toggle
+    const modelName = chatModel === 'PRO' ? "gemini-3-pro-preview" : "gemini-2.5-flash";
+
     try {
       const response = await aiClient.current.models.generateContent({
-        model: "gemini-3-pro-preview",
+        model: modelName,
         contents: [{ role: 'user', parts: [{ text: userMsg }] }],
         config: {
           systemInstruction: systemPrompt
@@ -221,7 +228,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
         }));
 
         const response = await aiClient.current.models.generateContent({
-            model: "gemini-3-pro-preview",
+            model: "gemini-3-pro-preview", // Always use Pro for rich roleplay
             contents: [
                 ...recentHistory,
                 { role: 'user', parts: [{ text: msgText }]}
@@ -292,7 +299,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
     try {
        const response = await aiClient.current.models.generateContent({
-         model: "gemini-2.5-flash",
+         model: "gemini-2.5-flash", // Use Flash for quick text analysis
          contents: fullContent
        });
        const text = response.text || "";
@@ -469,8 +476,25 @@ export const AIXi001: React.FC<AIXi001Props> = ({
            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-amber-500 tracking-widest flex items-center">
               <span className="animate-pulse mr-2 text-red-500">●</span> AI CORE ｛ξ-001｝
            </h1>
-           <div className="text-[10px] md:text-xs text-amber-700 uppercase">
-              Advanced Intelligence Interface // User: {currentUser} // Clearance {isHighCommand ? 'Ω-IX' : 'L-II'}
+           <div className="text-[10px] md:text-xs text-amber-700 uppercase flex items-center gap-4">
+              <span>User: {currentUser} // Clearance {isHighCommand ? 'Ω-IX' : 'L-II'}</span>
+              {/* Model Toggle */}
+              <div className="flex gap-1 items-center bg-amber-900/20 px-2 rounded border border-amber-900/50">
+                 <span className="text-amber-600">CHAT MODEL:</span>
+                 <button 
+                    onClick={() => setChatModel('FLASH')}
+                    className={`px-2 ${chatModel === 'FLASH' ? 'text-amber-300 font-bold' : 'text-amber-800 hover:text-amber-500'}`}
+                 >
+                    FLASH
+                 </button>
+                 <span className="text-amber-900">|</span>
+                 <button 
+                    onClick={() => setChatModel('PRO')}
+                    className={`px-2 ${chatModel === 'PRO' ? 'text-amber-300 font-bold' : 'text-amber-800 hover:text-amber-500'}`}
+                 >
+                    PRO
+                 </button>
+              </div>
            </div>
         </div>
         <button 
@@ -508,6 +532,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                         <button onClick={() => onNavigate('SYS')} className="text-left hover:text-amber-300 hover:translate-x-1 transition-all">&gt; SYSTEM_MONITOR</button>
                         <button onClick={() => onNavigate('MAP')} className="text-left hover:text-amber-300 hover:translate-x-1 transition-all">&gt; GLOBAL_DEFENSE</button>
                         <button onClick={() => onNavigate('SCAN')} className="text-left text-red-400 hover:text-red-300 hover:translate-x-1 transition-all">&gt; BIO_SCANNER</button>
+                        <button onClick={() => onNavigate('CAM')} className="text-left text-red-400 hover:text-red-300 hover:translate-x-1 transition-all">&gt; CCTV_SURVEILLANCE</button>
                     </div>
                 </div>
                 <div className="border border-amber-800/50 p-3 bg-amber-900/5 text-xs space-y-2">
@@ -535,7 +560,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
             <div className="order-3 text-sm text-amber-700 p-2">
                 <div className="mb-2 font-bold text-amber-500">核心消息 (MESSAGE OF THE DAY)</div>
                 <p>系统完整性校验通过。</p>
-                <p>Gemini Pro 3.0 模块已加载。</p>
+                <p>当前模型: {chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash'}</p>
                 <p>实时语音链路处于待机状态。</p>
                 <p className="mt-4 text-xs opacity-50">BUILD: 2077.11.09.RELEASE</p>
             </div>

@@ -17,9 +17,15 @@ interface TerminalProps {
 
 export type AppType = 'NONE' | 'SYS' | 'MAP' | 'SCAN' | 'AI' | 'CAM';
 
+const COMMANDS = [
+  'help', 'ls', 'cd', 'cat', 'clear', 'sys', 'map', 'scan', 
+  'ai', 'cam', 'pwd', 'whoami', 'import', 'touch', 'comms', 
+  'tree', 'logout'
+];
+
 export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
   const [lines, setLines] = useState<TerminalLine[]>([
-    { type: 'system', content: 'IMCU SECURE TERMINAL v4.3' },
+    { type: 'system', content: 'IMCU SECURE TERMINAL v4.4' },
     { type: 'system', content: '输入 "help" 查看可用命令 (Type "help")' }, 
     { type: 'success', content: '连接已建立 (Connection Established).' }
   ]);
@@ -28,6 +34,11 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [activeProgram, setActiveProgram] = useState<AppType>('NONE');
+  const [programOptions, setProgramOptions] = useState<any>({});
+  
+  // Autocompletion State
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [ghostText, setGhostText] = useState('');
   
   // Dynamic File System State
   const [fileSystem, setFileSystem] = useState<FileSystemNode>(FILE_SYSTEM);
@@ -49,14 +60,18 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
   // Scroll to bottom on new line
   useEffect(() => {
     if (activeProgram === 'NONE') {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [lines, activeProgram]);
 
   // Focus input on click
   const handleContainerClick = () => {
     if (activeProgram === 'NONE') {
-        inputRef.current?.focus();
+        // Check if user is selecting text
+        const selection = window.getSelection();
+        if (!selection || selection.toString().length === 0) {
+            inputRef.current?.focus({ preventScroll: true });
+        }
     }
   };
 
@@ -74,6 +89,66 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
     }
     return node;
   };
+
+  // Suggestion Logic
+  useEffect(() => {
+    if (!input) {
+      setSuggestions([]);
+      setGhostText('');
+      return;
+    }
+
+    const parts = input.split(' ');
+    const cmd = parts[0].toLowerCase();
+    const arg = parts.slice(1).join(' ');
+    const isArgContext = parts.length > 1;
+
+    let matches: string[] = [];
+
+    if (!isArgContext) {
+      matches = COMMANDS.filter(c => c.startsWith(cmd));
+    } else {
+      const node = getCurrentNode();
+      if (node && node.type === 'DIR') {
+        const children = node.children;
+        
+        if (cmd === 'cd') {
+           // Suggest Directories
+           const dirs = Object.entries(children)
+             .filter(([_, child]) => child.type === 'DIR')
+             .map(([name]) => name);
+           matches = ['..', ...dirs].filter(d => d.startsWith(arg));
+        } else if (cmd === 'cat') {
+           // Suggest Files
+           const files = Object.entries(children)
+             .filter(([_, child]) => child.type === 'FILE')
+             .map(([name]) => name);
+           matches = files.filter(f => f.startsWith(arg));
+        } else if (cmd === 'ai') {
+           if ('-flash'.startsWith(arg)) matches.push('-flash');
+        } else if (cmd === 'cam') {
+           if ('-pro'.startsWith(arg)) matches.push('-pro');
+        }
+      }
+    }
+
+    setSuggestions(matches);
+
+    // Ghost Text Calculation
+    if (matches.length > 0) {
+      const bestMatch = matches[0];
+      const currentTyped = isArgContext ? arg : cmd;
+      
+      if (bestMatch.startsWith(currentTyped) && bestMatch.length > currentTyped.length) {
+         setGhostText(bestMatch.slice(currentTyped.length));
+      } else {
+         setGhostText('');
+      }
+    } else {
+      setGhostText('');
+    }
+  }, [input, currentPath, fileSystem]);
+
 
   // Add a file to the current directory
   const addFile = (name: string, content: string) => {
@@ -136,7 +211,8 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
 
   const handleProgramClose = () => {
     setActiveProgram('NONE');
-    setTimeout(() => inputRef.current?.focus(), 100);
+    setProgramOptions({});
+    setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 100);
   };
 
   const handleNavigateFromAI = (target: AppType) => {
@@ -182,7 +258,11 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
         newLines.push({ type: 'output', content: '  pwd           - 显示当前路径 (Print Path)' });
         newLines.push({ type: 'output', content: '  clear         - 清空屏幕 (Clear Screen)' });
         newLines.push({ type: 'system', content: '--- VISUAL SUBSYSTEMS ---' });
-        newLines.push({ type: 'output', content: '  sys, map, scan, ai, cam' });
+        newLines.push({ type: 'output', content: '  sys           - 系统监控 (System Monitor)' });
+        newLines.push({ type: 'output', content: '  map           - 全球防御 (Global Defense)' });
+        newLines.push({ type: 'output', content: '  scan          - 生物扫描 (Bio-Scanner)' });
+        newLines.push({ type: 'output', content: '  ai [-flash]   - AI核心 (Use -flash for speed / 使用flash模型提速)' });
+        newLines.push({ type: 'output', content: '  cam [-pro]    - 闭路监控 (Use -pro for HD / 使用pro模型高清)' });
         break;
 
       case 'clear':
@@ -192,8 +272,20 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
       case 'sys': setActiveProgram('SYS'); break;
       case 'map': setActiveProgram('MAP'); break;
       case 'scan': setActiveProgram('SCAN'); break;
-      case 'ai': setActiveProgram('AI'); break;
-      case 'cam': setActiveProgram('CAM'); break;
+      
+      case 'ai': 
+        if (args.includes('-flash') || args.includes('--flash')) {
+           setProgramOptions({ initialModel: 'FLASH' });
+        }
+        setActiveProgram('AI'); 
+        break;
+        
+      case 'cam': 
+        if (args.includes('-pro') || args.includes('--pro')) {
+            setProgramOptions({ initialModel: 'PRO' });
+        }
+        setActiveProgram('CAM'); 
+        break;
 
       case 'pwd':
         newLines.push({ type: 'output', content: `/${currentPath.join('/')}` });
@@ -341,12 +433,22 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
     }
 
     setLines(prev => [...prev, ...newLines]);
+    setSuggestions([]);
+    setGhostText('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       executeCommand(input);
       setInput('');
+    } else if (e.key === 'Tab' || e.key === 'ArrowRight') {
+      // Autocomplete
+      if (ghostText) {
+          e.preventDefault();
+          setInput(prev => prev + ghostText);
+      } else if (e.key === 'Tab') {
+          e.preventDefault(); // Prevent focus loss if no ghost text but tab pressed
+      }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (history.length > 0) {
@@ -391,7 +493,7 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
       {activeProgram === 'SYS' && <SystemMonitor onClose={handleProgramClose} />}
       {activeProgram === 'MAP' && <WorldMap onClose={handleProgramClose} />}
       {activeProgram === 'SCAN' && <BioScan onClose={handleProgramClose} />}
-      {activeProgram === 'CAM' && <Surveillance onClose={handleProgramClose} />}
+      {activeProgram === 'CAM' && <Surveillance onClose={handleProgramClose} initialModel={programOptions.initialModel} />}
       {activeProgram === 'AI' && (
         <AIXi001 
             onClose={handleProgramClose} 
@@ -403,6 +505,7 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
             onDeleteContact={handleDeleteContact}
             currentUser={user}
             isHighCommand={isHighCommand}
+            initialModel={programOptions.initialModel}
         />
       )}
 
@@ -419,20 +522,54 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
       </div>
       
       {/* Input Area */}
-      <div className="mt-2 flex items-center border-t border-amber-800/30 pt-2 shrink-0">
-        <span className="mr-2 text-green-500 whitespace-nowrap">[{user}@{getPromptPath()}]$</span>
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => { setInput(e.target.value); soundManager.playKeystroke(); }}
-          onKeyDown={handleKeyDown}
-          className="flex-1 bg-transparent border-none outline-none text-amber-500 caret-amber-500 font-vt323 text-xl min-w-0"
-          autoFocus
-          autoComplete="off"
-          autoCapitalize="none"
-          disabled={activeProgram !== 'NONE'}
-        />
+      <div className="mt-2 flex flex-col shrink-0">
+        <div className="flex items-center border-t border-amber-800/30 pt-2 relative">
+            <span className="mr-2 text-green-500 whitespace-nowrap">[{user}@{getPromptPath()}]$</span>
+            <div className="relative flex-1">
+                {/* Ghost Text Layer */}
+                <div className="absolute inset-0 pointer-events-none flex items-center text-amber-900/50 text-xl font-vt323 select-none z-0">
+                    <span className="opacity-0 whitespace-pre">{input}</span>
+                    <span>{ghostText}</span>
+                </div>
+                
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={(e) => { setInput(e.target.value); soundManager.playKeystroke(); }}
+                    onKeyDown={handleKeyDown}
+                    className="w-full bg-transparent border-none outline-none text-amber-500 caret-amber-500 font-vt323 text-xl min-w-0 relative z-10 placeholder-transparent"
+                    autoFocus
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    disabled={activeProgram !== 'NONE'}
+                />
+            </div>
+        </div>
+        
+        {/* Suggestions List */}
+        {suggestions.length > 0 && input.length > 0 && (
+            <div className="text-amber-900 text-sm mt-1 ml-2 flex gap-4 flex-wrap opacity-80 pl-[10px] md:pl-[20px]">
+                {suggestions.map((s, i) => (
+                    <span key={i} className={`cursor-pointer hover:text-amber-500 ${s.startsWith(input) || (input.split(' ').length > 1 && s.startsWith(input.split(' ').slice(1).join(' '))) ? "text-amber-700 font-bold" : ""}`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (input.includes(' ')) {
+                                // Argument completion
+                                const parts = input.split(' ');
+                                setInput(parts[0] + ' ' + s);
+                            } else {
+                                // Command completion
+                                setInput(s);
+                            }
+                            inputRef.current?.focus({ preventScroll: true });
+                        }}
+                    >
+                        {s}
+                    </span>
+                ))}
+            </div>
+        )}
       </div>
       
       {/* Mobile Quick Actions */}
