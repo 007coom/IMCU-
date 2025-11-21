@@ -77,7 +77,8 @@ const App: React.FC = () => {
     e.preventDefault();
     if (loginStep === 'IDENTITY') {
       soundManager.playEnter();
-      if (identity.trim() === 'Ω') {
+      // Allow any non-empty identity
+      if (identity.trim().length > 0) {
         setLoginStep('PASSWORD');
         setLoginError('');
       } else {
@@ -191,7 +192,7 @@ const App: React.FC = () => {
                      soundManager.playKeystroke();
                    }}
                    autoFocus
-                   placeholder={loginStep === 'IDENTITY' ? "输入 Ω" : "****"}
+                   placeholder={loginStep === 'IDENTITY' ? "输入身份标识 / ENTER ID" : "****"}
                  />
                </div>
 
@@ -217,7 +218,7 @@ const App: React.FC = () => {
 
   return (
     <CRTLayout isOn={true}>
-      <Terminal user="Ω" onLogout={handleLogout} />
+      <Terminal user={identity} onLogout={handleLogout} />
     </CRTLayout>
   );
 };

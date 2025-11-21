@@ -39,6 +39,13 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Check Permission Level
+  const checkClearance = (u: string): boolean => {
+    const high = ['Ω', 'Omega', 'Observer', '观察者', 'Observation'];
+    return high.some(h => h.toLowerCase() === u.toLowerCase() || h.toLowerCase() === u.trim().toLowerCase());
+  };
+  const isHighCommand = checkClearance(user);
+
   // Scroll to bottom on new line
   useEffect(() => {
     if (activeProgram === 'NONE') {
@@ -219,9 +226,14 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
 
       case 'whoami':
         newLines.push({ type: 'output', content: `当前用户: ${user}` });
-        newLines.push({ type: 'output', content: '安全许可: Ω-IX (最高权限)' });
-        if (user === 'Ω') {
-             newLines.push({ type: 'system', content: '备注: 别名 "复读奶牛猫" (Alias: Repeater Cow Cat)' });
+        if (isHighCommand) {
+             newLines.push({ type: 'output', content: '安全许可: Ω-IX (最高权限 / HIGHEST)' });
+             if (user === 'Ω') {
+                 newLines.push({ type: 'system', content: '备注: 别名 "复读奶牛猫" (Alias: Repeater Cow Cat)' });
+             }
+        } else {
+             newLines.push({ type: 'output', content: '安全许可: Level-II (受限访问 / RESTRICTED)' });
+             newLines.push({ type: 'system', content: '警报：您正在访问高级加密终端。部分功能可能被锁定。' });
         }
         break;
 
@@ -239,7 +251,11 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
       case 'round little black ball':
          newLines.push({ type: 'system', content: '>> 正在呼叫观察者 (The Observer)...' });
          setTimeout(() => {
-             setLines(prev => [...prev, { type: 'output', content: 'Observer: "我在看着你... 小猫咪。 (I am watching you...)"' }]);
+             if (isHighCommand) {
+                setLines(prev => [...prev, { type: 'output', content: 'Observer: "我在看着你... (I am watching you...)"' }]);
+             } else {
+                setLines(prev => [...prev, { type: 'error', content: 'Observer: "这不是你该看的东西。" (System: Signal Jammed)' }]);
+             }
              soundManager.playLoginSuccess();
          }, 1000);
          break;
@@ -385,6 +401,8 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
             contacts={contacts}
             onAddContact={handleAddContact}
             onDeleteContact={handleDeleteContact}
+            currentUser={user}
+            isHighCommand={isHighCommand}
         />
       )}
 
