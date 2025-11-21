@@ -47,6 +47,7 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
   const [contacts, setContacts] = useState<Contact[]>(CONTACTS);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -65,13 +66,24 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
   }, [lines, activeProgram]);
 
   // Focus input on click
-  const handleContainerClick = () => {
+  const handleContainerClick = (e: React.MouseEvent) => {
     if (activeProgram === 'NONE') {
         // Check if user is selecting text
         const selection = window.getSelection();
-        if (!selection || selection.toString().length === 0) {
-            inputRef.current?.focus({ preventScroll: true });
+        if (selection && selection.toString().length > 0) {
+            return;
         }
+        
+        // Check if scrolled up (reading history)
+        if (scrollContainerRef.current) {
+            const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+            // If distance from bottom is greater than threshold (50px), assume reading history
+            if (scrollHeight - scrollTop - clientHeight > 50) {
+                return;
+            }
+        }
+
+        inputRef.current?.focus({ preventScroll: true });
     }
   };
 
@@ -276,6 +288,8 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
       case 'ai': 
         if (args.includes('-flash') || args.includes('--flash')) {
            setProgramOptions({ initialModel: 'FLASH' });
+        } else {
+           setProgramOptions({ initialModel: 'FLASH' }); // Default to FLASH per user request for stability
         }
         setActiveProgram('AI'); 
         break;
@@ -283,6 +297,8 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
       case 'cam': 
         if (args.includes('-pro') || args.includes('--pro')) {
             setProgramOptions({ initialModel: 'PRO' });
+        } else {
+            setProgramOptions({ initialModel: 'FLASH' }); // Default to FLASH per user request for stability
         }
         setActiveProgram('CAM'); 
         break;
@@ -509,7 +525,7 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
         />
       )}
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pb-4">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto custom-scrollbar pb-4">
         {lines.map((line, idx) => (
           <div key={idx} className={`mb-1 break-words ${line.type === 'error' ? 'text-red-500' : line.type === 'success' ? 'text-green-500' : line.type === 'system' ? 'text-amber-700' : ''}`}>
              {line.type === 'input' && (

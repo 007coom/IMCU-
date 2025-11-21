@@ -122,8 +122,11 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
               aspectRatio: "1:1"
           };
       } else {
+          // Note: gemini-2.5-flash-image does not support imageConfig options like imageSize.
+          // Providing an empty config or omitting imageConfig is safer for Flash to avoid 400 Bad Request.
+          // However, aspectRatio is generally supported if the model supports generation.
           config.imageConfig = {
-              aspectRatio: "1:1" // Flash supports aspect ratio but not imageSize
+               aspectRatio: "1:1" 
           };
       }
 
@@ -174,6 +177,9 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
             }
         } else {
             addLog(`> ERR: CONNECTION LOST // ${error.message}`);
+            if (modelType === 'PRO') {
+                addLog(`> TIP: TRY SWITCHING TO [FLASH] MODEL IN CONFIG.`);
+            }
         }
         soundManager.playLoginFail();
     } finally {

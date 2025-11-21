@@ -81,8 +81,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   const [apiKey] = useState(process.env.API_KEY); 
   const aiClient = useRef<GoogleGenAI | null>(null);
 
-  // Model State
-  const [chatModel, setChatModel] = useState<'FLASH' | 'PRO'>(initialModel || 'PRO');
+  // Model State - Default to FLASH for reliability unless specified otherwise
+  const [chatModel, setChatModel] = useState<'FLASH' | 'PRO'>(initialModel || 'FLASH');
 
   // --- DASHBOARD STATE ---
   const [activeSubsystems, setActiveSubsystems] = useState({ neural: 0, defense: 0 });
@@ -218,6 +218,9 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       setIsCommsThinking(true);
       soundManager.playEnter();
 
+      // Use the selected model (respecting the toggle) to ensure reliability
+      const modelName = chatModel === 'PRO' ? "gemini-3-pro-preview" : "gemini-2.5-flash";
+
       try {
         // Construct history for context
         const currentHistory = commsHistory[activeContact.id] || [];
@@ -228,7 +231,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
         }));
 
         const response = await aiClient.current.models.generateContent({
-            model: "gemini-3-pro-preview", // Always use Pro for rich roleplay
+            model: modelName,
             contents: [
                 ...recentHistory,
                 { role: 'user', parts: [{ text: msgText }]}
@@ -249,8 +252,15 @@ export const AIXi001: React.FC<AIXi001Props> = ({
         }));
         soundManager.playLoginSuccess();
 
-      } catch (err) {
+      } catch (err: any) {
           console.error(err);
+          setCommsHistory(prev => ({
+            ...prev,
+            [activeContact.id]: [
+                ...(prev[activeContact.id] || []),
+                { role: 'model', text: `ERR: COMMS_FAILURE // ${err.message || 'Unknown Error'}. Try switching to FLASH model.`, timestamp: new Date().toLocaleTimeString() }
+            ]
+          }));
           soundManager.playLoginFail();
       } finally {
           setIsCommsThinking(false);
@@ -567,7 +577,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
           </div>
         )}
 
-        {/* 2. CHAT MODE (Gemini 3 Pro) */}
+        {/* 2. CHAT MODE (Gemini 3 Pro / 2.5 Flash) */}
         {viewMode === 'CHAT' && (
            <div className="h-full flex flex-col">
               <div className="flex-1 overflow-y-auto custom-scrollbar p-2 md:p-4 space-y-4 bg-black/40 border border-amber-900/30 mb-4">
@@ -706,7 +716,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
            </div>
         )}
 
-        {/* 4. COMMS MODE (New) */}
+        {/* 4. COMMS MODE (Gemini 3 Pro / 2.5 Flash) */}
         {viewMode === 'COMMS' && (
            <div className="h-full flex flex-col md:flex-row gap-4">
               {/* Contact List */}
