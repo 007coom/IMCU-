@@ -223,8 +223,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       const modelName = chatModel === 'PRO' ? "gemini-3-pro-preview" : "gemini-2.5-flash";
 
       try {
-        // Construct history for context based on CURRENT STATE (optimistic update above hasn't re-rendered yet)
-        // We read from the state variable, so we need to manually append the new user message.
+        // Construct history for context based on CURRENT STATE
         let historyContext = commsHistory[activeContact.id] || [];
         
         // Limit context window for simplicity/cost (last 10 messages)
@@ -232,13 +231,28 @@ export const AIXi001: React.FC<AIXi001Props> = ({
             historyContext = historyContext.slice(historyContext.length - 10);
         }
         
-        // Ensure validity: Gemini API often prefers history starting with User.
-        // If the sliced history starts with Model, we skip it to be safe.
-        if (historyContext.length > 0 && historyContext[0].role === 'model') {
-             historyContext = historyContext.slice(1);
+        // Sanitize history: ensure strictly User -> Model -> User -> Model
+        const filteredHistory: ChatMessage[] = [];
+        let prevRole: 'user' | 'model' | null = null;
+
+        for (const msg of historyContext) {
+            if (msg.role !== prevRole) {
+                filteredHistory.push(msg);
+                prevRole = msg.role;
+            }
         }
 
-        const historyParts = historyContext.map(m => ({
+        // Ensure start with User (remove leading Model if any)
+        if (filteredHistory.length > 0 && filteredHistory[0].role === 'model') {
+             filteredHistory.shift();
+        }
+
+        // Ensure end with Model (remove trailing User if any - though rare in this flow, technically we are appending a User next)
+        if (filteredHistory.length > 0 && filteredHistory[filteredHistory.length - 1].role === 'user') {
+             filteredHistory.pop();
+        }
+
+        const historyParts = filteredHistory.map(m => ({
             role: m.role,
             parts: [{ text: m.text }]
         }));
@@ -826,21 +840,22 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                       </div>
 
                       {/* Persona Brief / Intro Display - TOGGLEABLE */}
-                      <div className="px-4 py-2 bg-amber-900/5 border-b border-amber-900/30 flex justify-between items-start">
-                          <div className="flex-1">
-                              <div 
-                                  className="text-[10px] text-amber-700 font-bold mb-1 cursor-pointer hover:text-amber-500 flex items-center select-none"
-                                  onClick={() => setShowPersonaBrief(!showPersonaBrief)}
-                              >
-                                  SUBJECT BRIEF // {showPersonaBrief ? '[-]' : '[+]'}
-                              </div>
-                              {showPersonaBrief && (
-                                  <div className="text-xs text-amber-400/80 italic font-mono leading-relaxed animate-in fade-in">
-                                      "{activeContact.personaPrompt}"
-                                  </div>
-                              )}
+                      <div className="px-4 py-2 bg-amber-900/5 border-b border-amber-900/30 flex justify-between items-center">
+                          <div className="text-[10px] text-amber-700 font-bold select-none">
+                              SUBJECT BRIEF //
                           </div>
+                          <button
+                              className="text-[10px] text-amber-500 border border-amber-900/50 px-2 py-0.5 hover:bg-amber-900/20 hover:text-amber-300 transition-colors"
+                              onClick={() => setShowPersonaBrief(!showPersonaBrief)}
+                          >
+                              {showPersonaBrief ? '[- HIDE]' : '[+ SHOW]'}
+                          </button>
                       </div>
+                      {showPersonaBrief && (
+                          <div className="px-4 py-2 bg-amber-900/5 border-b border-amber-900/30 text-xs text-amber-400/80 italic font-mono leading-relaxed animate-in fade-in">
+                              "{activeContact.personaPrompt}"
+                          </div>
+                      )}
 
                       {/* Messages */}
                       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3 bg-zinc-900/10">

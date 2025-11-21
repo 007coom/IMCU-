@@ -114,14 +114,13 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
       const config: any = {};
       
       // Image Config varies by model
+      // CRITICAL FIX: Do NOT set config.imageConfig for gemini-2.5-flash-image to avoid 400 errors.
       if (isPro) {
           config.imageConfig = { 
               imageSize: resolution,
               aspectRatio: "1:1"
           };
-      } 
-      // CRITICAL FIX: Do NOT set config.imageConfig for gemini-2.5-flash-image to avoid 400 errors.
-      // Flash defaults to 1:1 automatically.
+      }
 
       // Reverse parts to put image first if it exists (Common practice: [Image, Text])
       const response = await ai.models.generateContent({
@@ -169,9 +168,9 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
                 addLog('> MANUAL AUTH REQUIRED.');
             }
         } else {
-            addLog(`> ERR: CONNECTION LOST // ${error.message}`);
+            addLog(`> ERR: ${error.message || 'UNKNOWN ERROR'}`);
             if (modelType === 'PRO') {
-                addLog(`> TIP: TRY SWITCHING TO [FLASH] MODEL IN CONFIG.`);
+                addLog(`> TIP: TRY SWITCHING TO [FLASH] MODEL.`);
             }
         }
         soundManager.playLoginFail();
