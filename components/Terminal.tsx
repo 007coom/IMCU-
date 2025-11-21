@@ -138,6 +138,7 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
            matches = files.filter(f => f.startsWith(arg));
         } else if (cmd === 'ai') {
            if ('-flash'.startsWith(arg)) matches.push('-flash');
+           if ('-pro'.startsWith(arg)) matches.push('-pro');
         } else if (cmd === 'cam') {
            if ('-pro'.startsWith(arg)) matches.push('-pro');
         }
@@ -286,8 +287,8 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
       case 'scan': setActiveProgram('SCAN'); break;
       
       case 'ai': 
-        if (args.includes('-flash') || args.includes('--flash')) {
-           setProgramOptions({ initialModel: 'FLASH' });
+        if (args.includes('-pro') || args.includes('--pro')) {
+           setProgramOptions({ initialModel: 'PRO' });
         } else {
            setProgramOptions({ initialModel: 'FLASH' }); // Default to FLASH per user request for stability
         }

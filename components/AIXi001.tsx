@@ -113,6 +113,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   const [commsHistory, setCommsHistory] = useState<{[id: string]: ChatMessage[]}>({});
   const [commsInput, setCommsInput] = useState('');
   const [isCommsThinking, setIsCommsThinking] = useState(false);
+  const [showPersonaBrief, setShowPersonaBrief] = useState(true);
   // Add Contact State
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [newContactName, setNewContactName] = useState('');
@@ -207,7 +208,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       setCommsInput('');
       const timestamp = new Date().toLocaleTimeString();
 
-      // Update local history
+      // Update local history state
       setCommsHistory(prev => ({
           ...prev,
           [activeContact.id]: [
@@ -222,10 +223,22 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       const modelName = chatModel === 'PRO' ? "gemini-3-pro-preview" : "gemini-2.5-flash";
 
       try {
-        // Construct history for context
-        const currentHistory = commsHistory[activeContact.id] || [];
-        // Limit context window for simplicity/cost
-        const recentHistory = currentHistory.slice(-5).map(m => ({
+        // Construct history for context based on CURRENT STATE (optimistic update above hasn't re-rendered yet)
+        // We read from the state variable, so we need to manually append the new user message.
+        let historyContext = commsHistory[activeContact.id] || [];
+        
+        // Limit context window for simplicity/cost (last 10 messages)
+        if (historyContext.length > 10) {
+            historyContext = historyContext.slice(historyContext.length - 10);
+        }
+        
+        // Ensure validity: Gemini API often prefers history starting with User.
+        // If the sliced history starts with Model, we skip it to be safe.
+        if (historyContext.length > 0 && historyContext[0].role === 'model') {
+             historyContext = historyContext.slice(1);
+        }
+
+        const historyParts = historyContext.map(m => ({
             role: m.role,
             parts: [{ text: m.text }]
         }));
@@ -233,11 +246,11 @@ export const AIXi001: React.FC<AIXi001Props> = ({
         const response = await aiClient.current.models.generateContent({
             model: modelName,
             contents: [
-                ...recentHistory,
+                ...historyParts,
                 { role: 'user', parts: [{ text: msgText }]}
             ],
             config: {
-                systemInstruction: activeContact.personaPrompt
+                systemInstruction: activeContact.personaPrompt || "You are an IMCU Agent."
             }
         });
 
@@ -258,7 +271,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
             ...prev,
             [activeContact.id]: [
                 ...(prev[activeContact.id] || []),
-                { role: 'model', text: `ERR: COMMS_FAILURE // ${err.message || 'Unknown Error'}. Try switching to FLASH model.`, timestamp: new Date().toLocaleTimeString() }
+                { role: 'model', text: `ERR: COMMS_FAILURE // ${err.message || 'Connection Error'}.`, timestamp: new Date().toLocaleTimeString() }
             ]
           }));
           soundManager.playLoginFail();
@@ -812,11 +825,20 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                          </div>
                       </div>
 
-                      {/* Persona Brief / Intro Display */}
-                      <div className="px-4 py-2 bg-amber-900/5 border-b border-amber-900/30">
-                          <div className="text-[10px] text-amber-700 font-bold mb-1">SUBJECT BRIEF //</div>
-                          <div className="text-xs text-amber-400/80 italic font-mono leading-relaxed">
-                              "{activeContact.personaPrompt}"
+                      {/* Persona Brief / Intro Display - TOGGLEABLE */}
+                      <div className="px-4 py-2 bg-amber-900/5 border-b border-amber-900/30 flex justify-between items-start">
+                          <div className="flex-1">
+                              <div 
+                                  className="text-[10px] text-amber-700 font-bold mb-1 cursor-pointer hover:text-amber-500 flex items-center select-none"
+                                  onClick={() => setShowPersonaBrief(!showPersonaBrief)}
+                              >
+                                  SUBJECT BRIEF // {showPersonaBrief ? '[-]' : '[+]'}
+                              </div>
+                              {showPersonaBrief && (
+                                  <div className="text-xs text-amber-400/80 italic font-mono leading-relaxed animate-in fade-in">
+                                      "{activeContact.personaPrompt}"
+                                  </div>
+                              )}
                           </div>
                       </div>
 

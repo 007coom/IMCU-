@@ -72,14 +72,12 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
       const isPro = modelType === 'PRO';
       
       // API Key Check for Pro Model (Gemini 3 Pro Image)
-      // We must cast window to any to access the aistudio property injected by the environment.
       if (isPro && (window as any).aistudio) {
          const hasKey = await (window as any).aistudio.hasSelectedApiKey();
          if (!hasKey) {
             addLog('> SECURITY ALERT: HIGHER CLEARANCE REQUIRED.');
             addLog('> INITIATING AUTHENTICATION PROTOCOL...');
             await (window as any).aistudio.openSelectKey();
-            // We assume success or user cancellation. We proceed to try the generation.
          }
       }
 
@@ -121,14 +119,9 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
               imageSize: resolution,
               aspectRatio: "1:1"
           };
-      } else {
-          // Note: gemini-2.5-flash-image does not support imageConfig options like imageSize.
-          // Providing an empty config or omitting imageConfig is safer for Flash to avoid 400 Bad Request.
-          // However, aspectRatio is generally supported if the model supports generation.
-          config.imageConfig = {
-               aspectRatio: "1:1" 
-          };
-      }
+      } 
+      // CRITICAL FIX: Do NOT set config.imageConfig for gemini-2.5-flash-image to avoid 400 errors.
+      // Flash defaults to 1:1 automatically.
 
       // Reverse parts to put image first if it exists (Common practice: [Image, Text])
       const response = await ai.models.generateContent({
