@@ -1,0 +1,7 @@
+{
+  "name": "IMCU Terminal Ω",
+  "description": "A cassette-futurism styled classified terminal interface for the IMCU Foundation.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

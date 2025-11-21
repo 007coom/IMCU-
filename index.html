@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>IMCU Terminal Ω</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+    <style>
+      body {
+        background-color: #050505;
+        margin: 0;
+        overflow: hidden;
+        font-family: 'VT323', monospace;
+      }
+      /* Custom Scrollbar for the retro feel */
+      ::-webkit-scrollbar {
+        width: 12px;
+        background: #1a1a1a;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #d97706; 
+        border: 2px solid #000;
+      }
+      
+      /* CRT Animations */
+      @keyframes flicker {
+        0% { opacity: 0.97; }
+        5% { opacity: 0.95; }
+        10% { opacity: 0.9; }
+        15% { opacity: 0.95; }
+        20% { opacity: 0.99; }
+        50% { opacity: 0.95; }
+        55% { opacity: 0.9; }
+        60% { opacity: 0.96; }
+        95% { opacity: 0.99; }
+        100% { opacity: 0.94; }
+      }
+
+      @keyframes scanline {
+        0% { transform: translateY(-100%); }
+        100% { transform: translateY(100%); }
+      }
+
+      .crt-flicker {
+        animation: flicker 0.15s infinite;
+      }
+
+      .scanline-overlay {
+        background: linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0),
+          rgba(255, 255, 255, 0) 50%,
+          rgba(0, 0, 0, 0.2) 50%,
+          rgba(0, 0, 0, 0.2)
+        );
+        background-size: 100% 4px;
+        pointer-events: none;
+      }
+      
+      .text-glow {
+        text-shadow: 0 0 5px rgba(217, 119, 6, 0.7);
+      }
+      
+      .text-glow-red {
+        text-shadow: 0 0 5px rgba(220, 38, 38, 0.7);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
