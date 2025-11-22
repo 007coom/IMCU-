@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { soundManager } from '../utils/sound';
 import { AppType, DirectoryNode, FileSystemNode, Contact, ClearanceLevel } from '../types';
 import { GoogleGenAI, Modality } from "@google/genai";
-import { sendSparkRequest, SparkConfig, SparkVersion } from '../utils/spark';
+import { sendSparkRequest, SparkConfig, SparkVersion, SPARK_ENDPOINTS } from '../utils/spark';
 import { IconBiohazard, IconCircuit, IconDatabase, IconEye, IconHex, IconLock, IconRadioactive, IconSatellite, IconTerminal } from './Icons';
 
 // Declare process for TypeScript compiler compatibility
@@ -101,11 +101,14 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   const [chatModel, setChatModel] = useState<'FLASH' | 'PRO'>(initialModel || 'FLASH');
 
   // Spark State - Initialize with saved values or BUILT-IN DEFAULTS
-  // FIX: Default to v1.1 (Lite) as v3.5 causes 11200 Auth errors for Lite accounts
   const [sparkAppId, setSparkAppId] = useState(localStorage.getItem('IMCU_SPARK_APPID') || DEFAULT_SPARK_CONFIG.appId);
   const [sparkApiSecret, setSparkApiSecret] = useState(localStorage.getItem('IMCU_SPARK_SECRET') || DEFAULT_SPARK_CONFIG.apiSecret);
   const [sparkApiKey, setSparkApiKey] = useState(localStorage.getItem('IMCU_SPARK_KEY') || DEFAULT_SPARK_CONFIG.apiKey);
   const [sparkVersion, setSparkVersion] = useState<SparkVersion>((localStorage.getItem('IMCU_SPARK_VERSION') as SparkVersion) || 'v1.1');
+  
+  // NEW: Spark Advanced Config
+  const [sparkServiceUrl, setSparkServiceUrl] = useState(localStorage.getItem('IMCU_SPARK_URL') || SPARK_ENDPOINTS['v1.1'].url);
+  const [sparkDomain, setSparkDomain] = useState(localStorage.getItem('IMCU_SPARK_DOMAIN') || SPARK_ENDPOINTS['v1.1'].domain);
 
   // --- DASHBOARD STATE ---
   const [activeSubsystems, setActiveSubsystems] = useState({ neural: 0, defense: 0 });
@@ -196,8 +199,20 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       localStorage.setItem('IMCU_SPARK_SECRET', sparkApiSecret);
       localStorage.setItem('IMCU_SPARK_KEY', sparkApiKey);
       localStorage.setItem('IMCU_SPARK_VERSION', sparkVersion);
+      localStorage.setItem('IMCU_SPARK_URL', sparkServiceUrl);
+      localStorage.setItem('IMCU_SPARK_DOMAIN', sparkDomain);
       soundManager.playLoginSuccess();
       setViewMode('DASHBOARD');
+  };
+  
+  const handleSparkVersionChange = (v: SparkVersion) => {
+      setSparkVersion(v);
+      // Auto-fill defaults when version changes, but allow overrides
+      const defaults = SPARK_ENDPOINTS[v];
+      if (defaults) {
+          setSparkServiceUrl(defaults.url);
+          setSparkDomain(defaults.domain);
+      }
   };
 
   // --- HANDLERS: CHAT ---
@@ -245,7 +260,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
               limitedHistory, 
               { appId: sparkAppId, apiSecret: sparkApiSecret, apiKey: sparkApiKey },
               systemPrompt,
-              sparkVersion
+              { url: sparkServiceUrl, domain: sparkDomain }
           );
 
       } else {
@@ -268,7 +283,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       console.error(error);
       let errorMsg = `ERR: NETWORK_FAILURE // ${error.message || error}`;
       if (errorMsg.includes('11200')) {
-         errorMsg += `\n[AUTH ERROR] Your Spark AppID does not support version ${sparkVersion}. Please switch to 'Spark Lite (V1.1)' in the CONFIG tab.`;
+         errorMsg += `\n[AUTH ERROR] Your Spark AppID does not support domain '${sparkDomain}'. Please try changing 'API Domain' to 'lite' or 'generalv2' in CONFIG.`;
       }
       setChatHistory(prev => [...prev, { role: 'model', text: errorMsg, timestamp: new Date().toLocaleTimeString() }]);
       soundManager.playLoginFail();
@@ -322,7 +337,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                 sparkHistory,
                 { appId: sparkAppId, apiSecret: sparkApiSecret, apiKey: sparkApiKey },
                 systemPrompt,
-                sparkVersion
+                { url: sparkServiceUrl, domain: sparkDomain }
              );
 
         } else {
@@ -366,7 +381,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
           console.error(err);
           let errorMsg = `ERR: COMMS_FAILURE // ${err.message || err}`;
           if (errorMsg.includes('11200')) {
-             errorMsg += `\n[AUTH ERROR] Try changing Spark Version to 'v1.1' in CONFIG.`;
+             errorMsg += ` (Auth Error: Check CONFIG Domain)`;
           }
           setCommsHistory(prev => ({
             ...prev,
@@ -437,7 +452,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                [{role: 'user', content: fullContent}],
                { appId: sparkAppId, apiSecret: sparkApiSecret, apiKey: sparkApiKey },
                "You are an AI text analyzer.",
-               sparkVersion
+               { url: sparkServiceUrl, domain: sparkDomain }
            );
        } else {
            const response = await aiClient.current!.models.generateContent({
@@ -452,7 +467,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
     } catch (error: any) {
        let errorMsg = `ERR: PROCESSING_FAILED // ${error.message || error}`;
        if (errorMsg.includes('11200')) {
-           errorMsg += ` (Auth Failed: Check Version in CONFIG)`;
+           errorMsg += ` (Auth Failed: Check Domain)`;
        }
        setAnalysisResult(errorMsg);
        soundManager.playLoginFail();
@@ -1109,10 +1124,10 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                 <div className="space-y-3 animate-in fade-in">
                                     {/* Spark Version Selector */}
                                     <div>
-                                        <label className="block text-xs text-blue-400 mb-1 font-bold">SPARK VERSION</label>
+                                        <label className="block text-xs text-blue-400 mb-1 font-bold">SPARK VERSION (PRESET)</label>
                                         <select 
                                             value={sparkVersion}
-                                            onChange={(e) => setSparkVersion(e.target.value as SparkVersion)}
+                                            onChange={(e) => handleSparkVersionChange(e.target.value as SparkVersion)}
                                             className="w-full bg-zinc-900 border border-blue-900 text-blue-300 p-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
                                         >
                                             <option value="v1.1">Spark Lite (V1.1) - Free</option>
@@ -1122,11 +1137,40 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                             <option value="v4.0">Spark 4.0 Ultra</option>
                                         </select>
                                         <div className="text-[10px] text-blue-500/50 pt-1">
-                                            Error 11200? Try 'Spark Lite' (your key likely doesn't support Max/Pro).
+                                            Auto-fills URL & Domain. Change this first, then edit below if needed.
                                         </div>
                                     </div>
 
-                                    <div>
+                                    {/* ADVANCED CONFIG */}
+                                    <div className="border-t border-blue-900/50 pt-2 mt-2">
+                                        <label className="block text-xs text-blue-300 mb-1 font-bold">ADVANCED ENDPOINT CONFIG</label>
+                                        <div className="space-y-2">
+                                            <div>
+                                                <label className="block text-[10px] text-blue-500">Service URL</label>
+                                                <input 
+                                                    value={sparkServiceUrl}
+                                                    onChange={(e) => setSparkServiceUrl(e.target.value)}
+                                                    className="w-full bg-black border border-blue-800 text-blue-300 p-1 font-mono text-xs focus:border-blue-500 focus:outline-none"
+                                                    type="text"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] text-blue-500">API Domain (Critical for Auth Error 11200)</label>
+                                                <input 
+                                                    value={sparkDomain}
+                                                    onChange={(e) => setSparkDomain(e.target.value)}
+                                                    className="w-full bg-black border border-blue-800 text-blue-300 p-1 font-mono text-xs focus:border-blue-500 focus:outline-none"
+                                                    type="text"
+                                                    placeholder="e.g., general, lite, generalv2"
+                                                />
+                                                <div className="text-[9px] text-amber-600 pt-1">
+                                                    If you get error 11200, try changing this to 'lite', 'generalv2', or 'general'.
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t border-blue-900/50 pt-2 mt-2">
                                         <label className="block text-xs text-blue-400 mb-1">APPID</label>
                                         <input 
                                             value={sparkAppId}
@@ -1152,9 +1196,6 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                             className="w-full bg-zinc-900 border border-blue-900 text-blue-300 p-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
                                             type="password"
                                         />
-                                    </div>
-                                    <div className="text-[10px] text-blue-500/50 pt-1">
-                                        Default built-in keys active. Can be overridden. Saved to LocalStorage.
                                     </div>
                                 </div>
                             )}

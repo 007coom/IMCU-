@@ -19,9 +19,14 @@ export interface SparkConfig {
   apiKey: string;
 }
 
+export interface SparkEndpoint {
+  url: string;
+  domain: string;
+}
+
 export type SparkVersion = 'v1.1' | 'v2.1' | 'v3.1' | 'v3.5' | 'v4.0';
 
-const SPARK_ENDPOINTS: Record<SparkVersion, { url: string; domain: string }> = {
+export const SPARK_ENDPOINTS: Record<SparkVersion, SparkEndpoint> = {
   'v1.1': { url: "wss://spark-api.xf-yun.com/v1.1/chat", domain: "general" },     // Lite
   'v2.1': { url: "wss://spark-api.xf-yun.com/v2.1/chat", domain: "generalv2" },   // V2.0
   'v3.1': { url: "wss://spark-api.xf-yun.com/v3.1/chat", domain: "generalv3" },   // Pro
@@ -29,12 +34,10 @@ const SPARK_ENDPOINTS: Record<SparkVersion, { url: string; domain: string }> = {
   'v4.0': { url: "wss://spark-api.xf-yun.com/v4.0/chat", domain: "4.0Ultra" }     // Ultra
 };
 
-export const getSparkUrl = async (apiSecret: string, apiKey: string, version: SparkVersion): Promise<string> => {
-  const endpoint = SPARK_ENDPOINTS[version];
-  if (!endpoint) throw new Error(`Unsupported Spark Version: ${version}`);
-  
-  const host = new URL(endpoint.url).host;
-  const path = new URL(endpoint.url).pathname;
+export const getSparkUrl = async (apiSecret: string, apiKey: string, serviceUrl: string): Promise<string> => {
+  const urlObj = new URL(serviceUrl);
+  const host = urlObj.host;
+  const path = urlObj.pathname;
   const date = new Date().toUTCString();
   
   // 1. Construct signature origin
@@ -67,19 +70,18 @@ export const getSparkUrl = async (apiSecret: string, apiKey: string, version: Sp
   const authorization = btoa(authorizationOrigin);
 
   // 4. Build final URL
-  return `${endpoint.url}?authorization=${authorization}&date=${encodeURI(date)}&host=${host}`;
+  return `${serviceUrl}?authorization=${authorization}&date=${encodeURI(date)}&host=${host}`;
 };
 
 export const sendSparkRequest = async (
   messages: { role: string; content: string }[], 
   config: SparkConfig,
   systemPrompt: string,
-  version: SparkVersion = 'v1.1' // Default to Lite
+  endpoint: SparkEndpoint
 ): Promise<string> => {
-  const endpoint = SPARK_ENDPOINTS[version];
   
   try {
-    const url = await getSparkUrl(config.apiSecret, config.apiKey, version);
+    const url = await getSparkUrl(config.apiSecret, config.apiKey, endpoint.url);
   
     return new Promise((resolve, reject) => {
       const socket = new WebSocket(url);
@@ -96,7 +98,6 @@ export const sendSparkRequest = async (
       }, 30000);
 
       // Transform messages: Spark places system prompt in payload or as first message
-      // Some versions support system role, but safe bet is to prepend.
       const payloadMessages = [
           { role: "user", content: systemPrompt }, 
           ...messages
