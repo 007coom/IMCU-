@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { soundManager } from '../utils/sound';
 import { AppType, DirectoryNode, FileSystemNode, Contact, ClearanceLevel } from '../types';
 import { GoogleGenAI, Modality } from "@google/genai";
-import { sendSparkRequest, SparkConfig } from '../utils/spark';
+import { sendSparkRequest, SparkConfig, SparkVersion } from '../utils/spark';
 import { IconBiohazard, IconCircuit, IconDatabase, IconEye, IconHex, IconLock, IconRadioactive, IconSatellite, IconTerminal } from './Icons';
 
 // Declare process for TypeScript compiler compatibility
@@ -104,6 +104,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   const [sparkAppId, setSparkAppId] = useState(localStorage.getItem('IMCU_SPARK_APPID') || DEFAULT_SPARK_CONFIG.appId);
   const [sparkApiSecret, setSparkApiSecret] = useState(localStorage.getItem('IMCU_SPARK_SECRET') || DEFAULT_SPARK_CONFIG.apiSecret);
   const [sparkApiKey, setSparkApiKey] = useState(localStorage.getItem('IMCU_SPARK_KEY') || DEFAULT_SPARK_CONFIG.apiKey);
+  const [sparkVersion, setSparkVersion] = useState<SparkVersion>((localStorage.getItem('IMCU_SPARK_VERSION') as SparkVersion) || 'v3.5');
 
   // --- DASHBOARD STATE ---
   const [activeSubsystems, setActiveSubsystems] = useState({ neural: 0, defense: 0 });
@@ -193,6 +194,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       localStorage.setItem('IMCU_SPARK_APPID', sparkAppId);
       localStorage.setItem('IMCU_SPARK_SECRET', sparkApiSecret);
       localStorage.setItem('IMCU_SPARK_KEY', sparkApiKey);
+      localStorage.setItem('IMCU_SPARK_VERSION', sparkVersion);
       soundManager.playLoginSuccess();
       setViewMode('DASHBOARD');
   };
@@ -241,7 +243,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
           text = await sendSparkRequest(
               limitedHistory, 
               { appId: sparkAppId, apiSecret: sparkApiSecret, apiKey: sparkApiKey },
-              systemPrompt
+              systemPrompt,
+              sparkVersion
           );
 
       } else {
@@ -313,7 +316,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
              reply = await sendSparkRequest(
                 sparkHistory,
                 { appId: sparkAppId, apiSecret: sparkApiSecret, apiKey: sparkApiKey },
-                systemPrompt
+                systemPrompt,
+                sparkVersion
              );
 
         } else {
@@ -423,7 +427,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
            text = await sendSparkRequest(
                [{role: 'user', content: fullContent}],
                { appId: sparkAppId, apiSecret: sparkApiSecret, apiKey: sparkApiKey },
-               "You are an AI text analyzer."
+               "You are an AI text analyzer.",
+               sparkVersion
            );
        } else {
            const response = await aiClient.current!.models.generateContent({
@@ -699,7 +704,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                 <div className="mb-2 font-bold text-amber-500">核心消息 (MESSAGE OF THE DAY)</div>
                 <p>系统完整性校验通过。</p>
                 <p>当前提供商: <span className="text-amber-300">{provider}</span></p>
-                <p>当前模型: {provider === 'GEMINI' ? (chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash') : 'iFLYTEK Spark V1.1'}</p>
+                <p>当前模型: {provider === 'GEMINI' ? (chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash') : `iFLYTEK Spark ${sparkVersion}`}</p>
                 <p>实时语音: {provider === 'GEMINI' ? 'AVAILABLE' : 'UNAVAILABLE (Spark)'}</p>
                 <button 
                     onClick={() => setViewMode('CONFIG')}
@@ -1053,7 +1058,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
         {/* 6. CONFIG MODE (NEW) */}
         {viewMode === 'CONFIG' && (
             <div className="h-full flex items-center justify-center p-4">
-                <div className="w-full max-w-2xl border border-amber-700 bg-black p-8 shadow-[0_0_40px_rgba(217,119,6,0.1)]">
+                <div className="w-full max-w-2xl border border-amber-700 bg-black p-8 shadow-[0_0_40px_rgba(217,119,6,0.1)] overflow-y-auto max-h-full custom-scrollbar">
                     <h2 className="text-2xl text-amber-500 font-bold mb-6 border-b border-amber-800 pb-2 flex items-center gap-3">
                         <IconCircuit className="w-6 h-6" /> 系统配置 (SYSTEM CONFIGURATION)
                     </h2>
@@ -1089,6 +1094,25 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                 </div>
                             ) : (
                                 <div className="space-y-3 animate-in fade-in">
+                                    {/* Spark Version Selector */}
+                                    <div>
+                                        <label className="block text-xs text-blue-400 mb-1 font-bold">SPARK VERSION</label>
+                                        <select 
+                                            value={sparkVersion}
+                                            onChange={(e) => setSparkVersion(e.target.value as SparkVersion)}
+                                            className="w-full bg-zinc-900 border border-blue-900 text-blue-300 p-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
+                                        >
+                                            <option value="v1.1">Spark Lite (V1.1) - Free</option>
+                                            <option value="v2.1">Spark V2.0</option>
+                                            <option value="v3.1">Spark Pro (V3.0)</option>
+                                            <option value="v3.5">Spark Max (V3.5)</option>
+                                            <option value="v4.0">Spark 4.0 Ultra</option>
+                                        </select>
+                                        <div className="text-[10px] text-blue-500/50 pt-1">
+                                            If you see Error 11200, try changing this version.
+                                        </div>
+                                    </div>
+
                                     <div>
                                         <label className="block text-xs text-blue-400 mb-1">APPID</label>
                                         <input 
