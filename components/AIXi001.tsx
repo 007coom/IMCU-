@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { soundManager } from '../utils/sound';
 import { AppType, DirectoryNode, FileSystemNode, Contact, ClearanceLevel } from '../types';
 import { GoogleGenAI, Modality } from "@google/genai";
+import { sendSparkRequest, SparkConfig } from '../utils/spark';
 import { IconBiohazard, IconCircuit, IconDatabase, IconEye, IconHex, IconLock, IconRadioactive, IconSatellite, IconTerminal } from './Icons';
 
 // Declare process for TypeScript compiler compatibility
@@ -81,12 +82,20 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   onClose, onNavigate, fileSystem, onUpdateFile, contacts, onAddContact, onDeleteContact, 
   currentUser, userRole, isHighCommand, initialModel
 }) => {
-  const [viewMode, setViewMode] = useState<'DASHBOARD' | 'CHAT' | 'DATABASE' | 'LIVE' | 'COMMS'>('DASHBOARD');
+  const [viewMode, setViewMode] = useState<'DASHBOARD' | 'CHAT' | 'DATABASE' | 'LIVE' | 'COMMS' | 'CONFIG'>('DASHBOARD');
+  
+  // --- API CONFIGURATION STATE ---
+  const [provider, setProvider] = useState<'GEMINI' | 'SPARK'>('GEMINI');
+  
+  // Gemini State
   const [apiKey] = useState(process.env.API_KEY); 
   const aiClient = useRef<GoogleGenAI | null>(null);
-
-  // Model State - Default to FLASH for reliability unless specified otherwise
   const [chatModel, setChatModel] = useState<'FLASH' | 'PRO'>(initialModel || 'FLASH');
+
+  // Spark State
+  const [sparkAppId, setSparkAppId] = useState('');
+  const [sparkApiSecret, setSparkApiSecret] = useState('');
+  const [sparkApiKey, setSparkApiKey] = useState('');
 
   // --- DASHBOARD STATE ---
   const [activeSubsystems, setActiveSubsystems] = useState({ neural: 0, defense: 0 });
@@ -145,6 +154,20 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       aiClient.current = new GoogleGenAI({ apiKey });
     }
     
+    // Load saved Spark credentials from local storage if available
+    const savedAppId = localStorage.getItem('IMCU_SPARK_APPID');
+    const savedSecret = localStorage.getItem('IMCU_SPARK_SECRET');
+    const savedKey = localStorage.getItem('IMCU_SPARK_KEY');
+    
+    if (savedAppId) setSparkAppId(savedAppId);
+    if (savedSecret) setSparkApiSecret(savedSecret);
+    if (savedKey) setSparkApiKey(savedKey);
+
+    // Auto-switch to Spark if configured and no Gemini Key
+    if (savedAppId && !apiKey) {
+        setProvider('SPARK');
+    }
+
     const frameInterval = window.setInterval(() => {
       setActiveSubsystems({
         neural: Math.min(100, Math.max(85, 90 + (Math.random() * 10 - 5))),
@@ -166,11 +189,30 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       commsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [commsHistory, activeContact, isCommsThinking]);
 
+  // Save Spark Creds Helper
+  const saveSparkCredentials = () => {
+      localStorage.setItem('IMCU_SPARK_APPID', sparkAppId);
+      localStorage.setItem('IMCU_SPARK_SECRET', sparkApiSecret);
+      localStorage.setItem('IMCU_SPARK_KEY', sparkApiKey);
+      soundManager.playLoginSuccess();
+      setViewMode('DASHBOARD');
+  };
 
   // --- HANDLERS: CHAT ---
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!chatInput.trim() || !aiClient.current) return;
+    if (!chatInput.trim()) return;
+
+    // Check providers
+    if (provider === 'GEMINI' && !aiClient.current) {
+        setChatHistory(prev => [...prev, { role: 'model', text: `ERR: GEMINI_API_KEY_MISSING.`, timestamp: new Date().toLocaleTimeString() }]);
+        return;
+    }
+    if (provider === 'SPARK' && (!sparkAppId || !sparkApiSecret || !sparkApiKey)) {
+        setChatHistory(prev => [...prev, { role: 'model', text: `ERR: SPARK_CREDENTIALS_MISSING. PLEASE CONFIGURE IN [CONFIG] TAB.`, timestamp: new Date().toLocaleTimeString() }]);
+        setViewMode('CONFIG');
+        return;
+    }
 
     const userMsg = chatInput;
     setChatInput('');
@@ -182,21 +224,44 @@ export const AIXi001: React.FC<AIXi001Props> = ({
         ? `你是指挥该终端的超级人工智能 ξ-001 (Xi-001)。请以冷静、极其理性、略带神秘感的语气回复。你的所有者是代号为'复读奶牛猫'的最高议员 Ω。当前操作者是拥有最高权限的 ${currentUser}，职位为 ${userRole}。你的回答应简洁、高效，符合科幻终端的风格。`
         : `你是指挥该终端的超级人工智能 ξ-001 (Xi-001)。当前操作者是 ${currentUser} (职位: ${userRole}, 权限等级: Level-II)。请以礼貌但保持距离的语气回复。对于涉及Ω级机密的问题（如“彩虹桥”、“归途”等），请以“权限不足 (ACCESS DENIED)”为由拒绝回答。`;
 
-    // Select model based on toggle
-    const modelName = chatModel === 'PRO' ? "gemini-3-pro-preview" : "gemini-2.5-flash";
-
     try {
-      const response = await aiClient.current.models.generateContent({
-        model: modelName,
-        contents: [{ role: 'user', parts: [{ text: userMsg }] }],
-        config: {
-          systemInstruction: systemPrompt
-        }
-      });
-      const text = response.text || "";
+      let text = "";
+      
+      if (provider === 'SPARK') {
+          // --- SPARK FLOW ---
+          const historyForSpark = chatHistory.map(msg => ({
+              role: msg.role === 'model' ? 'assistant' : 'user',
+              content: msg.text
+          }));
+          // Append current message
+          historyForSpark.push({ role: 'user', content: userMsg });
+          
+          // Limit history context to last 6 messages to avoid token limits in Lite
+          const limitedHistory = historyForSpark.slice(-6);
+
+          text = await sendSparkRequest(
+              limitedHistory, 
+              { appId: sparkAppId, apiSecret: sparkApiSecret, apiKey: sparkApiKey },
+              systemPrompt
+          );
+
+      } else {
+          // --- GEMINI FLOW ---
+          const modelName = chatModel === 'PRO' ? "gemini-3-pro-preview" : "gemini-2.5-flash";
+          const response = await aiClient.current!.models.generateContent({
+            model: modelName,
+            contents: [{ role: 'user', parts: [{ text: userMsg }] }],
+            config: {
+              systemInstruction: systemPrompt
+            }
+          });
+          text = response.text || "";
+      }
+      
       setChatHistory(prev => [...prev, { role: 'model', text: text, timestamp: new Date().toLocaleTimeString() }]);
       soundManager.playLoginSuccess();
-    } catch (error) {
+
+    } catch (error: any) {
       setChatHistory(prev => [...prev, { role: 'model', text: `ERR: NETWORK_FAILURE // ${error}`, timestamp: new Date().toLocaleTimeString() }]);
       soundManager.playLoginFail();
     } finally {
@@ -207,13 +272,18 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   // --- HANDLERS: COMMS (Agent Roleplay) ---
   const handleCommsSend = async (e?: React.FormEvent) => {
       e?.preventDefault();
-      if (!commsInput.trim() || !aiClient.current || !activeContact) return;
+      if (!commsInput.trim() || !activeContact) return;
+
+       if (provider === 'GEMINI' && !aiClient.current) return;
+       if (provider === 'SPARK' && (!sparkAppId || !sparkApiSecret || !sparkApiKey)) {
+           setViewMode('CONFIG');
+           return;
+       }
 
       const msgText = commsInput;
       setCommsInput('');
       const timestamp = new Date().toLocaleTimeString();
 
-      // Update local history state
       setCommsHistory(prev => ({
           ...prev,
           [activeContact.id]: [
@@ -224,56 +294,55 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       setIsCommsThinking(true);
       soundManager.playEnter();
 
-      // Use the selected model (respecting the toggle) to ensure reliability
-      const modelName = chatModel === 'PRO' ? "gemini-3-pro-preview" : "gemini-2.5-flash";
-
       try {
-        // Construct history for context based on CURRENT STATE
-        let historyContext = commsHistory[activeContact.id] || [];
-        
-        // Limit context window for simplicity/cost (last 10 messages)
-        if (historyContext.length > 10) {
-            historyContext = historyContext.slice(historyContext.length - 10);
-        }
-        
-        // Sanitize history: ensure strictly User -> Model -> User -> Model
-        const filteredHistory: ChatMessage[] = [];
-        let prevRole: 'user' | 'model' | null = null;
+        let reply = "...";
 
-        for (const msg of historyContext) {
-            if (msg.role !== prevRole) {
-                filteredHistory.push(msg);
-                prevRole = msg.role;
+        if (provider === 'SPARK') {
+             // --- SPARK FLOW ---
+             let historyContext = commsHistory[activeContact.id] || [];
+             if (historyContext.length > 6) historyContext = historyContext.slice(-6);
+             
+             const sparkHistory = historyContext.map(m => ({
+                 role: m.role === 'model' ? 'assistant' : 'user',
+                 content: m.text
+             }));
+             sparkHistory.push({ role: 'user', content: msgText });
+
+             const systemPrompt = activeContact.personaPrompt || `You are ${activeContact.name}.`;
+             
+             reply = await sendSparkRequest(
+                sparkHistory,
+                { appId: sparkAppId, apiSecret: sparkApiSecret, apiKey: sparkApiKey },
+                systemPrompt
+             );
+
+        } else {
+            // --- GEMINI FLOW ---
+            const modelName = chatModel === 'PRO' ? "gemini-3-pro-preview" : "gemini-2.5-flash";
+            let historyContext = commsHistory[activeContact.id] || [];
+            if (historyContext.length > 10) historyContext = historyContext.slice(historyContext.length - 10);
+            
+            // Sanitize history
+            const filteredHistory: ChatMessage[] = [];
+            let prevRole: 'user' | 'model' | null = null;
+            for (const msg of historyContext) {
+                if (msg.role !== prevRole) {
+                    filteredHistory.push(msg);
+                    prevRole = msg.role;
+                }
             }
+            if (filteredHistory.length > 0 && filteredHistory[0].role === 'model') filteredHistory.shift();
+            if (filteredHistory.length > 0 && filteredHistory[filteredHistory.length - 1].role === 'user') filteredHistory.pop();
+
+            const historyParts = filteredHistory.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
+
+            const response = await aiClient.current!.models.generateContent({
+                model: modelName,
+                contents: [ ...historyParts, { role: 'user', parts: [{ text: msgText }]} ],
+                config: { systemInstruction: activeContact.personaPrompt || `You are ${activeContact.name}.` }
+            });
+            reply = response.text || "...";
         }
-
-        // Ensure start with User (remove leading Model if any)
-        if (filteredHistory.length > 0 && filteredHistory[0].role === 'model') {
-             filteredHistory.shift();
-        }
-
-        // Ensure end with Model (remove trailing User if any - though rare in this flow, technically we are appending a User next)
-        if (filteredHistory.length > 0 && filteredHistory[filteredHistory.length - 1].role === 'user') {
-             filteredHistory.pop();
-        }
-
-        const historyParts = filteredHistory.map(m => ({
-            role: m.role,
-            parts: [{ text: m.text }]
-        }));
-
-        const response = await aiClient.current.models.generateContent({
-            model: modelName,
-            contents: [
-                ...historyParts,
-                { role: 'user', parts: [{ text: msgText }]}
-            ],
-            config: {
-                systemInstruction: activeContact.personaPrompt || `You are ${activeContact.name}.`
-            }
-        });
-
-        const reply = response.text || "...";
         
         setCommsHistory(prev => ({
             ...prev,
@@ -290,7 +359,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
             ...prev,
             [activeContact.id]: [
                 ...(prev[activeContact.id] || []),
-                { role: 'model', text: `ERR: COMMS_FAILURE // ${err.message || 'Connection Error'}.`, timestamp: new Date().toLocaleTimeString() }
+                { role: 'model', text: `ERR: COMMS_FAILURE // ${err.message || err}.`, timestamp: new Date().toLocaleTimeString() }
             ]
           }));
           soundManager.playLoginFail();
@@ -328,7 +397,13 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
   // --- HANDLERS: DATABASE ---
   const handleAnalyzeFile = async (mode: 'SUMMARY' | 'DECRYPT' | 'IMPROVE') => {
-    if (!selectedFile || !aiClient.current) return;
+    if (!selectedFile) return;
+    
+    if (provider === 'GEMINI' && !aiClient.current) return;
+    if (provider === 'SPARK' && (!sparkAppId || !sparkApiSecret || !sparkApiKey)) {
+        setViewMode('CONFIG');
+        return;
+    }
     
     setIsAnalyzing(true);
     setAnalysisResult('');
@@ -342,11 +417,22 @@ export const AIXi001: React.FC<AIXi001Props> = ({
     const fullContent = `${prompt}\n\n${selectedFile.content}`;
 
     try {
-       const response = await aiClient.current.models.generateContent({
-         model: "gemini-2.5-flash", // Use Flash for quick text analysis
-         contents: fullContent
-       });
-       const text = response.text || "";
+       let text = "";
+
+       if (provider === 'SPARK') {
+           text = await sendSparkRequest(
+               [{role: 'user', content: fullContent}],
+               { appId: sparkAppId, apiSecret: sparkApiSecret, apiKey: sparkApiKey },
+               "You are an AI text analyzer."
+           );
+       } else {
+           const response = await aiClient.current!.models.generateContent({
+             model: "gemini-2.5-flash", 
+             contents: fullContent
+           });
+           text = response.text || "";
+       }
+
        setAnalysisResult(text);
        soundManager.playLoginSuccess();
     } catch (error) {
@@ -381,6 +467,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
 
   // --- HANDLERS: LIVE API (Voice) ---
+  // NOTE: LIVE API IS GEMINI ONLY
   const disconnectLive = () => {
      if (processorRef.current) {
         processorRef.current.disconnect();
@@ -400,6 +487,12 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   };
 
   const connectLive = async () => {
+    if (provider === 'SPARK') {
+        setChatHistory(prev => [...prev, { role: 'model', text: `ERR: LIVE_VOICE_LINK_INCOMPATIBLE_WITH_SPARK_PROTOCOL.`, timestamp: new Date().toLocaleTimeString() }]);
+        setViewMode('CHAT');
+        return;
+    }
+
     if (!aiClient.current) return;
     soundManager.playEnter();
     setLiveStatus('CONNECTING');
@@ -524,23 +617,21 @@ export const AIXi001: React.FC<AIXi001Props> = ({
            </h1>
            <div className="text-[10px] md:text-xs text-amber-700 uppercase flex items-center gap-4">
               <span>User: {currentUser} [{userRole}] // Clearance {isHighCommand ? 'Ω-IX' : 'L-II'}</span>
-              {/* Model Toggle */}
-              <div className="flex gap-1 items-center bg-amber-900/20 px-2 rounded border border-amber-900/50">
-                 <span className="text-amber-600">CHAT MODEL:</span>
-                 <button 
-                    onClick={() => setChatModel('FLASH')}
-                    className={`px-2 ${chatModel === 'FLASH' ? 'text-amber-300 font-bold' : 'text-amber-800 hover:text-amber-500'}`}
-                 >
-                    FLASH
-                 </button>
-                 <span className="text-amber-900">|</span>
-                 <button 
-                    onClick={() => setChatModel('PRO')}
-                    className={`px-2 ${chatModel === 'PRO' ? 'text-amber-300 font-bold' : 'text-amber-800 hover:text-amber-500'}`}
-                 >
-                    PRO
-                 </button>
-              </div>
+              
+              {/* Provider Indicator */}
+              <span className={`font-bold ${provider === 'SPARK' ? 'text-blue-400' : 'text-green-500'}`}>
+                  LINK: {provider}
+              </span>
+
+              {/* Gemini Model Toggle (Only visible if Gemini) */}
+              {provider === 'GEMINI' && (
+                <div className="flex gap-1 items-center bg-amber-900/20 px-2 rounded border border-amber-900/50">
+                    <span className="text-amber-600">MODEL:</span>
+                    <button onClick={() => setChatModel('FLASH')} className={`px-2 ${chatModel === 'FLASH' ? 'text-amber-300 font-bold' : 'text-amber-800 hover:text-amber-500'}`}>FLASH</button>
+                    <span className="text-amber-900">|</span>
+                    <button onClick={() => setChatModel('PRO')} className={`px-2 ${chatModel === 'PRO' ? 'text-amber-300 font-bold' : 'text-amber-800 hover:text-amber-500'}`}>PRO</button>
+                </div>
+              )}
            </div>
         </div>
         <button 
@@ -562,6 +653,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
           <TabButton mode="DATABASE" label="档案 // DATABASE" icon={<IconDatabase className="w-4 h-4"/>} />
           <TabButton mode="COMMS" label="通讯 // COMMS" icon={<IconSatellite className="w-4 h-4"/>} />
           <TabButton mode="LIVE" label="神经链路 // UPLINK" icon={<IconEye className="w-4 h-4"/>} />
+          <TabButton mode="CONFIG" label="设置 // CONFIG" icon={<IconCircuit className="w-4 h-4"/>} />
       </div>
 
       {/* CONTENT AREA */}
@@ -606,14 +698,20 @@ export const AIXi001: React.FC<AIXi001Props> = ({
             <div className="order-3 text-sm text-amber-700 p-2">
                 <div className="mb-2 font-bold text-amber-500">核心消息 (MESSAGE OF THE DAY)</div>
                 <p>系统完整性校验通过。</p>
-                <p>当前模型: {chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash'}</p>
-                <p>实时语音链路处于待机状态。</p>
-                <p className="mt-4 text-xs opacity-50">BUILD: 2077.11.09.RELEASE</p>
+                <p>当前提供商: <span className="text-amber-300">{provider}</span></p>
+                <p>当前模型: {provider === 'GEMINI' ? (chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash') : 'iFlytek Spark Lite'}</p>
+                <p>实时语音: {provider === 'GEMINI' ? 'AVAILABLE' : 'UNAVAILABLE (Spark)'}</p>
+                <button 
+                    onClick={() => setViewMode('CONFIG')}
+                    className="mt-4 border border-amber-700 text-amber-500 px-2 py-1 text-xs hover:bg-amber-900/50"
+                >
+                    [修改配置 CONFIGURE]
+                </button>
             </div>
           </div>
         )}
 
-        {/* 2. CHAT MODE (Gemini 3 Pro / 2.5 Flash) */}
+        {/* 2. CHAT MODE */}
         {viewMode === 'CHAT' && (
            <div className="h-full flex flex-col">
               <div className="flex-1 overflow-y-auto custom-scrollbar p-2 md:p-4 space-y-4 bg-black/40 border border-amber-900/30 mb-4">
@@ -642,15 +740,16 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                      value={chatInput}
                      onChange={(e) => setChatInput(e.target.value)}
                      className="flex-1 bg-amber-900/10 border border-amber-700 p-2 text-amber-300 focus:outline-none focus:border-amber-400 font-mono placeholder-amber-900 text-base md:text-sm"
-                     placeholder="输入指令 / ENTER COMMAND..."
+                     placeholder={provider === 'SPARK' && !sparkApiKey ? "ERR: CONFIGURE SPARK KEYS FIRST" : "输入指令 / ENTER COMMAND..."}
                      autoFocus
+                     disabled={isChatThinking}
                   />
-                  <button type="submit" className="bg-amber-700 hover:bg-amber-600 text-black px-6 font-bold uppercase">发送 SEND</button>
+                  <button type="submit" className="bg-amber-700 hover:bg-amber-600 text-black px-6 font-bold uppercase disabled:opacity-50" disabled={isChatThinking}>发送 SEND</button>
               </form>
            </div>
         )}
 
-        {/* 3. DATABASE MODE (Gemini 2.5 Flash) */}
+        {/* 3. DATABASE MODE */}
         {viewMode === 'DATABASE' && (
            <div className="h-full flex flex-col md:flex-row gap-4">
               {/* File List */}
@@ -712,7 +811,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                      {/* AI Operations Panel */}
                      <div className="border-t-2 border-amber-600 bg-zinc-900/90 p-3 shrink-0">
                         <div className="text-[10px] text-amber-500 mb-2 uppercase tracking-wider font-bold flex items-center">
-                           <span className="mr-2">◆</span> AI Intelligence Operations (Gemini Flash)
+                           <span className="mr-2">◆</span> AI Intelligence Operations ({provider})
                         </div>
                         
                         {!analysisResult && !isAnalyzing && (
@@ -752,7 +851,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
            </div>
         )}
 
-        {/* 4. COMMS MODE (Gemini 3 Pro / 2.5 Flash) */}
+        {/* 4. COMMS MODE */}
         {viewMode === 'COMMS' && (
            <div className="h-full flex flex-col md:flex-row gap-4">
               {/* Contact List */}
@@ -897,8 +996,9 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                              placeholder="TRANSMIT MESSAGE..."
                              value={commsInput}
                              onChange={(e) => setCommsInput(e.target.value)}
+                             disabled={isCommsThinking}
                           />
-                          <button type="submit" className="bg-amber-800 text-black px-4 font-bold text-sm hover:bg-amber-600">SEND</button>
+                          <button type="submit" className="bg-amber-800 text-black px-4 font-bold text-sm hover:bg-amber-600 disabled:opacity-50" disabled={isCommsThinking}>SEND</button>
                       </form>
                   </div>
               )}
@@ -944,10 +1044,102 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                   )}
                   <div className="text-xs text-amber-800 max-w-md text-center">
                       警告：实时音频流未加密。请勿在连接时讨论Ω级机密。
-                      <br/>WARNING: Audio stream unencrypted. Do not discuss Omega-level secrets.
+                      <br/>{provider === 'SPARK' ? '注意：讯飞星火模式下不支持实时语音功能。' : 'WARNING: Audio stream unencrypted.'}
                   </div>
                </div>
            </div>
+        )}
+        
+        {/* 6. CONFIG MODE (NEW) */}
+        {viewMode === 'CONFIG' && (
+            <div className="h-full flex items-center justify-center p-4">
+                <div className="w-full max-w-2xl border border-amber-700 bg-black p-8 shadow-[0_0_40px_rgba(217,119,6,0.1)]">
+                    <h2 className="text-2xl text-amber-500 font-bold mb-6 border-b border-amber-800 pb-2 flex items-center gap-3">
+                        <IconCircuit className="w-6 h-6" /> 系统配置 (SYSTEM CONFIGURATION)
+                    </h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Provider Selection */}
+                        <div className="space-y-4">
+                            <label className="block text-sm text-amber-700 font-bold">AI 服务提供商 (PROVIDER)</label>
+                            <div className="flex flex-col gap-2">
+                                <button 
+                                    onClick={() => setProvider('GEMINI')}
+                                    className={`p-4 border text-left transition-all ${provider === 'GEMINI' ? 'bg-amber-600 text-black border-amber-600' : 'border-amber-800 text-amber-600 hover:border-amber-500'}`}
+                                >
+                                    <div className="font-bold text-lg">GOOGLE GEMINI</div>
+                                    <div className="text-xs opacity-70">Default. Requires VPN in China. Supports Audio Live.</div>
+                                </button>
+                                <button 
+                                    onClick={() => setProvider('SPARK')}
+                                    className={`p-4 border text-left transition-all ${provider === 'SPARK' ? 'bg-blue-600 text-white border-blue-600' : 'border-amber-800 text-amber-600 hover:border-blue-400 hover:text-blue-400'}`}
+                                >
+                                    <div className="font-bold text-lg">iFLYTEK SPARK (讯飞星火)</div>
+                                    <div className="text-xs opacity-70">Recommended for China. Text Only.</div>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Credential Inputs */}
+                        <div className="space-y-4">
+                            {provider === 'GEMINI' ? (
+                                <div className="p-4 border border-amber-900/50 bg-amber-900/10 text-amber-700 text-sm">
+                                    <p className="mb-2">Gemini API Key is configured via Environment Variables (Vercel/Env).</p>
+                                    <p>Current Status: <span className={apiKey ? "text-green-500" : "text-red-500"}>{apiKey ? "CONFIGURED" : "MISSING"}</span></p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3 animate-in fade-in">
+                                    <div>
+                                        <label className="block text-xs text-blue-400 mb-1">APPID</label>
+                                        <input 
+                                            value={sparkAppId}
+                                            onChange={(e) => setSparkAppId(e.target.value)}
+                                            className="w-full bg-zinc-900 border border-blue-900 text-blue-300 p-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
+                                            type="text"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-blue-400 mb-1">APISecret</label>
+                                        <input 
+                                            value={sparkApiSecret}
+                                            onChange={(e) => setSparkApiSecret(e.target.value)}
+                                            className="w-full bg-zinc-900 border border-blue-900 text-blue-300 p-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
+                                            type="password"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-blue-400 mb-1">APIKey</label>
+                                        <input 
+                                            value={sparkApiKey}
+                                            onChange={(e) => setSparkApiKey(e.target.value)}
+                                            className="w-full bg-zinc-900 border border-blue-900 text-blue-300 p-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
+                                            type="password"
+                                        />
+                                    </div>
+                                    <div className="text-[10px] text-blue-500/50 pt-1">
+                                        Credentials are saved to your browser's LocalStorage.
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="mt-8 flex justify-end gap-4">
+                         <button 
+                            onClick={() => setViewMode('DASHBOARD')}
+                            className="border border-amber-800 text-amber-700 px-6 py-2 hover:bg-amber-900/20"
+                         >
+                            CANCEL
+                         </button>
+                         <button 
+                            onClick={saveSparkCredentials}
+                            className={`px-6 py-2 font-bold text-black transition-all ${provider === 'SPARK' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-amber-600 hover:bg-amber-500'}`}
+                         >
+                            SAVE CONFIGURATION
+                         </button>
+                    </div>
+                </div>
+            </div>
         )}
       </div>
     </div>
