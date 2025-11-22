@@ -100,10 +100,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
   const [apiKey] = useState(getEnvApiKey()); 
   
-  // Default to SPARK if no Gemini key is found, otherwise default to GEMINI
-  const [provider, setProvider] = useState<'GEMINI' | 'SPARK'>(() => {
-      return getEnvApiKey() ? 'GEMINI' : 'SPARK';
-  });
+  // Default to SPARK as the primary provider per user request
+  const [provider, setProvider] = useState<'GEMINI' | 'SPARK'>('SPARK');
   
   // Gemini State
   const aiClient = useRef<GoogleGenAI | null>(null);
@@ -124,7 +122,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
   // --- CHAT STATE ---
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { role: 'model', text: `神经接口已就绪。识别用户: ${currentUser} (职位: ${userRole} | 权限: ${isHighCommand ? 'Ω-IX' : 'Level-II'}). 等待指令输入...`, timestamp: new Date().toLocaleTimeString() }
+    { role: 'model', text: `神经接口已就绪 (Provider: ${provider})。识别用户: ${currentUser} (职位: ${userRole} | 权限: ${isHighCommand ? 'Ω-IX' : 'Level-II'}). 等待指令输入...`, timestamp: new Date().toLocaleTimeString() }
   ]);
   const [chatInput, setChatInput] = useState('');
   const [isChatThinking, setIsChatThinking] = useState(false);
@@ -176,12 +174,6 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       aiClient.current = new GoogleGenAI({ apiKey });
     }
     
-    // Fallback Provider Check
-    if (!apiKey && provider === 'GEMINI') {
-        // Optional: Could auto-switch here, but let's just log it for now
-        // setProvider('SPARK'); 
-    }
-
     const frameInterval = window.setInterval(() => {
       setActiveSubsystems({
         neural: Math.min(100, Math.max(85, 90 + (Math.random() * 10 - 5))),
@@ -224,6 +216,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       // Force update the version AND the endpoint details to match v1.1 defaults
       setSparkVersion('v1.1');
       setSparkServiceUrl(SPARK_ENDPOINTS['v1.1'].url);
+      // This will now correctly pick up 'lite' from the updated utils
       setSparkDomain(SPARK_ENDPOINTS['v1.1'].domain);
 
       soundManager.playKeystroke();
@@ -308,7 +301,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       console.error(error);
       let errorMsg = `ERR: NETWORK_FAILURE // ${error.message || error}`;
       if (errorMsg.includes('11200')) {
-         errorMsg += `\n[AUTH ERROR] Spark Lite requires the correct domain. Please go to [CONFIG] and click 'LOAD BUILT-IN SPARK LITE KEYS' to reset.`;
+         errorMsg += `\n[AUTH ERROR] Spark Lite authentication failed. Check domain settings in [CONFIG]. Ensure domain is set to 'lite'.`;
       }
       setChatHistory(prev => [...prev, { role: 'model', text: errorMsg, timestamp: new Date().toLocaleTimeString() }]);
       soundManager.playLoginFail();
@@ -767,7 +760,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
             <div className="order-3 text-sm text-amber-700 p-2">
                 <div className="mb-2 font-bold text-amber-500">核心消息 (MESSAGE OF THE DAY)</div>
                 <p>系统完整性校验通过。</p>
-                <p>当前提供商: <span className="text-amber-300">{provider}</span></p>
+                <p>当前提供商: <span className="text-amber-300">{provider} (DEFAULT)</span></p>
                 <p>当前模型: {provider === 'GEMINI' ? (chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash') : (sparkVersion === 'v1.1' ? 'iFLYTEK Spark Lite' : `iFLYTEK Spark ${sparkVersion}`)}</p>
                 <p>实时语音: {provider === 'GEMINI' ? 'AVAILABLE' : 'UNAVAILABLE (Spark)'}</p>
                 <button 
@@ -1133,18 +1126,18 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                             <label className="block text-sm text-amber-700 font-bold">AI 服务提供商 (PROVIDER)</label>
                             <div className="flex flex-col gap-2">
                                 <button 
-                                    onClick={() => setProvider('GEMINI')}
-                                    className={`p-4 border text-left transition-all ${provider === 'GEMINI' ? 'bg-amber-600 text-black border-amber-600' : 'border-amber-800 text-amber-600 hover:border-amber-500'}`}
-                                >
-                                    <div className="font-bold text-lg">GOOGLE GEMINI</div>
-                                    <div className="text-xs opacity-70">Default. Requires VPN in China. Supports Audio Live.</div>
-                                </button>
-                                <button 
                                     onClick={() => setProvider('SPARK')}
                                     className={`p-4 border text-left transition-all ${provider === 'SPARK' ? 'bg-blue-600 text-white border-blue-600' : 'border-amber-800 text-amber-600 hover:border-blue-400 hover:text-blue-400'}`}
                                 >
                                     <div className="font-bold text-lg">iFLYTEK SPARK (讯飞星火)</div>
-                                    <div className="text-xs opacity-70">Recommended for China. Text Only.</div>
+                                    <div className="text-xs opacity-70">Recommended (Default). Text Only.</div>
+                                </button>
+                                <button 
+                                    onClick={() => setProvider('GEMINI')}
+                                    className={`p-4 border text-left transition-all ${provider === 'GEMINI' ? 'bg-amber-600 text-black border-amber-600' : 'border-amber-800 text-amber-600 hover:border-amber-500'}`}
+                                >
+                                    <div className="font-bold text-lg">GOOGLE GEMINI</div>
+                                    <div className="text-xs opacity-70">Requires VPN in China. Supports Audio Live.</div>
                                 </button>
                             </div>
                         </div>
@@ -1216,7 +1209,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                                     placeholder="e.g., general, lite, generalv2"
                                                 />
                                                 <div className="text-[9px] text-amber-600 pt-1">
-                                                    If you get error 11200, verify if domain should be 'general' or 'lite'.
+                                                    If you get error 11200, verify if domain should be 'general' or 'lite'. (Lite requires 'lite')
                                                 </div>
                                             </div>
                                         </div>

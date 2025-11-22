@@ -27,7 +27,7 @@ export interface SparkEndpoint {
 export type SparkVersion = 'v1.1' | 'v2.1' | 'v3.1' | 'v3.5' | 'v4.0';
 
 export const SPARK_ENDPOINTS: Record<SparkVersion, SparkEndpoint> = {
-  'v1.1': { url: "wss://spark-api.xf-yun.com/v1.1/chat", domain: "general" },     // Lite
+  'v1.1': { url: "wss://spark-api.xf-yun.com/v1.1/chat", domain: "lite" },        // Lite (Updated to 'lite')
   'v2.1': { url: "wss://spark-api.xf-yun.com/v2.1/chat", domain: "generalv2" },   // V2.0
   'v3.1': { url: "wss://spark-api.xf-yun.com/v3.1/chat", domain: "generalv3" },   // Pro
   'v3.5': { url: "wss://spark-api.xf-yun.com/v3.5/chat", domain: "generalv3.5" }, // Max
