@@ -92,9 +92,18 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   const [viewMode, setViewMode] = useState<'DASHBOARD' | 'CHAT' | 'DATABASE' | 'LIVE' | 'COMMS' | 'CONFIG'>('DASHBOARD');
   
   // --- API CONFIGURATION STATE ---
-  const [apiKey] = useState(process.env.API_KEY); 
+  const getEnvApiKey = () => {
+     const k = process.env.API_KEY;
+     if (!k || k === 'undefined' || k === 'null' || k.trim() === '') return '';
+     return k;
+  };
+
+  const [apiKey] = useState(getEnvApiKey()); 
+  
   // Default to SPARK if no Gemini key is found, otherwise default to GEMINI
-  const [provider, setProvider] = useState<'GEMINI' | 'SPARK'>(!process.env.API_KEY ? 'SPARK' : 'GEMINI');
+  const [provider, setProvider] = useState<'GEMINI' | 'SPARK'>(() => {
+      return getEnvApiKey() ? 'GEMINI' : 'SPARK';
+  });
   
   // Gemini State
   const aiClient = useRef<GoogleGenAI | null>(null);
@@ -167,9 +176,10 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       aiClient.current = new GoogleGenAI({ apiKey });
     }
     
-    // Force provider to SPARK if Gemini API Key is missing
-    if (!apiKey) {
-        setProvider('SPARK');
+    // Fallback Provider Check
+    if (!apiKey && provider === 'GEMINI') {
+        // Optional: Could auto-switch here, but let's just log it for now
+        // setProvider('SPARK'); 
     }
 
     const frameInterval = window.setInterval(() => {
@@ -183,7 +193,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
     }, 100);
 
     return () => clearInterval(frameInterval);
-  }, [apiKey, isLiveConnected]);
+  }, [apiKey, isLiveConnected, provider]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -206,10 +216,16 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   };
 
   const loadBuiltInSparkDefaults = () => {
+      setProvider('SPARK');
       setSparkAppId(DEFAULT_SPARK_CONFIG.appId);
       setSparkApiSecret(DEFAULT_SPARK_CONFIG.apiSecret);
       setSparkApiKey(DEFAULT_SPARK_CONFIG.apiKey);
-      handleSparkVersionChange('v1.1'); // Default to Lite
+      
+      // Force update the version AND the endpoint details to match v1.1 defaults
+      setSparkVersion('v1.1');
+      setSparkServiceUrl(SPARK_ENDPOINTS['v1.1'].url);
+      setSparkDomain(SPARK_ENDPOINTS['v1.1'].domain);
+
       soundManager.playKeystroke();
   };
   
@@ -230,7 +246,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
     // Check providers
     if (provider === 'GEMINI' && !aiClient.current) {
-        setChatHistory(prev => [...prev, { role: 'model', text: `ERR: GEMINI_API_KEY_MISSING.`, timestamp: new Date().toLocaleTimeString() }]);
+        const errorMsg = `ERR: GEMINI_API_KEY_MISSING.\n\n检测到 Google API Key 未配置。\n原因: 环境变量 API_KEY 为空。\n\n解决方案:\n1. 请在 [CONFIG] 页签切换为 "iFLYTEK SPARK (讯飞星火)" 使用内置模型。\n2. 或在 .env 文件中配置 Google API Key。`;
+        setChatHistory(prev => [...prev, { role: 'model', text: errorMsg, timestamp: new Date().toLocaleTimeString() }]);
         return;
     }
     if (provider === 'SPARK' && (!sparkAppId || !sparkApiSecret || !sparkApiKey)) {
@@ -291,7 +308,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       console.error(error);
       let errorMsg = `ERR: NETWORK_FAILURE // ${error.message || error}`;
       if (errorMsg.includes('11200')) {
-         errorMsg += `\n[AUTH ERROR] Your Spark AppID does not support domain '${sparkDomain}'. Please try changing 'API Domain' to 'lite' or 'generalv2' in CONFIG.`;
+         errorMsg += `\n[AUTH ERROR] Spark Lite requires the correct domain. Please go to [CONFIG] and click 'LOAD BUILT-IN SPARK LITE KEYS' to reset.`;
       }
       setChatHistory(prev => [...prev, { role: 'model', text: errorMsg, timestamp: new Date().toLocaleTimeString() }]);
       soundManager.playLoginFail();
@@ -305,7 +322,14 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       e?.preventDefault();
       if (!commsInput.trim() || !activeContact) return;
 
-       if (provider === 'GEMINI' && !aiClient.current) return;
+       if (provider === 'GEMINI' && !aiClient.current) {
+           const errorMsg = `ERR: GEMINI_API_KEY_MISSING. 请在 [CONFIG] 切换为 Spark。`;
+           setCommsHistory(prev => ({
+                ...prev,
+                [activeContact.id]: [ ...(prev[activeContact.id] || []), { role: 'model', text: errorMsg, timestamp: new Date().toLocaleTimeString() } ]
+           }));
+           return;
+       }
        if (provider === 'SPARK' && (!sparkAppId || !sparkApiSecret || !sparkApiKey)) {
            setViewMode('CONFIG');
            return;
@@ -389,7 +413,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
           console.error(err);
           let errorMsg = `ERR: COMMS_FAILURE // ${err.message || err}`;
           if (errorMsg.includes('11200')) {
-             errorMsg += ` (Auth Error: Check CONFIG Domain)`;
+             errorMsg += ` (Auth Error: Check Domain)`;
           }
           setCommsHistory(prev => ({
             ...prev,
@@ -435,7 +459,10 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   const handleAnalyzeFile = async (mode: 'SUMMARY' | 'DECRYPT' | 'IMPROVE') => {
     if (!selectedFile) return;
     
-    if (provider === 'GEMINI' && !aiClient.current) return;
+    if (provider === 'GEMINI' && !aiClient.current) {
+        setAnalysisResult("ERR: GEMINI_API_KEY_MISSING. Switch to Spark in CONFIG.");
+        return;
+    }
     if (provider === 'SPARK' && (!sparkAppId || !sparkApiSecret || !sparkApiKey)) {
         setViewMode('CONFIG');
         return;
@@ -661,7 +688,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
               
               {/* Provider Indicator */}
               <span className={`font-bold ${provider === 'SPARK' ? 'text-blue-400' : 'text-green-500'}`}>
-                  LINK: {provider} {provider === 'SPARK' && <span className="text-[10px] opacity-70">[{sparkVersion === 'v1.1' ? 'LITE' : sparkVersion}]</span>}
+                  LINK: {provider === 'SPARK' && sparkVersion === 'v1.1' ? 'iFLYTEK SPARK LITE' : provider}
+                  {provider === 'SPARK' && sparkVersion !== 'v1.1' && <span className="text-[10px] opacity-70">[{sparkVersion}]</span>}
               </span>
 
               {/* Gemini Model Toggle (Only visible if Gemini) */}
@@ -1126,7 +1154,15 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                             {provider === 'GEMINI' ? (
                                 <div className="p-4 border border-amber-900/50 bg-amber-900/10 text-amber-700 text-sm">
                                     <p className="mb-2">Gemini API Key is configured via Environment Variables (Vercel/Env).</p>
-                                    <p>Current Status: <span className={apiKey ? "text-green-500" : "text-red-500"}>{apiKey ? "CONFIGURED" : "MISSING"}</span></p>
+                                    <p>Current Status: <span className={apiKey ? "text-green-500" : "text-red-500 animate-pulse"}>{apiKey ? "CONFIGURED" : "MISSING"}</span></p>
+                                    {!apiKey && (
+                                        <button 
+                                            onClick={loadBuiltInSparkDefaults}
+                                            className="mt-4 w-full py-2 bg-red-900/30 border border-red-500 text-red-400 hover:bg-red-600 hover:text-black font-bold text-xs tracking-wide transition-colors animate-pulse"
+                                        >
+                                            [ ALERT: KEY MISSING - AUTO-SWITCH TO SPARK ]
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-3 animate-in fade-in">
@@ -1152,9 +1188,9 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                     {/* Quick Load Built-in Keys */}
                                     <button 
                                         onClick={loadBuiltInSparkDefaults}
-                                        className="w-full py-1 text-xs bg-blue-900/30 border border-blue-700 text-blue-400 hover:bg-blue-700 hover:text-white transition-colors mb-2"
+                                        className="w-full py-2 text-xs bg-blue-900/30 border border-blue-700 text-blue-400 hover:bg-blue-700 hover:text-white transition-colors mb-4 font-bold tracking-wide"
                                     >
-                                        [ LOAD BUILT-IN SPARK LITE KEYS ]
+                                        [ LOAD BUILT-IN SPARK LITE KEYS (FIX CONFIG) ]
                                     </button>
 
                                     {/* ADVANCED CONFIG */}
@@ -1180,7 +1216,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                                     placeholder="e.g., general, lite, generalv2"
                                                 />
                                                 <div className="text-[9px] text-amber-600 pt-1">
-                                                    If you get error 11200, try changing this to 'lite', 'generalv2', or 'general'.
+                                                    If you get error 11200, verify if domain should be 'general' or 'lite'.
                                                 </div>
                                             </div>
                                         </div>
