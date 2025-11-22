@@ -1,5 +1,5 @@
 
-# IMCU Terminal Ω - 部署指南
+# IMCU Terminal Ω - 部署与开发指南
 
 本项目是一个基于 React 和 Google Gemini API 构建的复古科幻终端风格 Web 应用。
 
@@ -66,21 +66,165 @@
 1.  **全局代理**：确保您的设备（电脑或手机）开启了 VPN 或网络代理工具，并设置为**全局模式**，或者确保浏览器流量被规则代理到海外。
 2.  **验证**：在浏览器中尝试访问 `https://generativelanguage.googleapis.com`。如果能看到 Google 的 404 页面或其他响应，说明连通性正常，应用即可正常使用。
 
-### 解决方案 B：搭建 API 反向代理 (适合开发者)
+---
 
-如果您希望分享给没有代理工具的用户使用，您需要搭建一个“中转站”。
+## 5. 使用 Cloudflare Pages 构建网站 (Cloudflare 部署教程)
 
-1.  **原理**：
-    用户浏览器 -> 您的中转服务器 (Cloudflare/Nginx) -> Google Gemini API
+Cloudflare Pages 是一个极佳的静态网站托管服务，速度快且在全球（包括部分国内地区）访问体验较好。
 
-2.  **修改代码**：
-    您需要修改 `AIXi001.tsx` 和 `Surveillance.tsx` 中初始化 `GoogleGenAI` 的代码，修改 `baseUrl` 指向您的中转地址。
-    *(注：Google GenAI SDK 默认不支持直接修改 Base URL，可能需要手动修改 SDK 包或使用 fetch 自行封装请求，这属于高级开发内容。)*
+### 步骤 1: 准备代码库
+1. 确保你已经将本项目代码上传到了 **GitHub** 仓库。
 
-### 解决方案 C：使用 Vercel Rewrite (仅限 Vercel 部署)
+### 步骤 2: 创建 Cloudflare Pages 项目
+1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)。
+2. 在左侧菜单选择 **Workers & Pages**。
+3. 点击 **Create Application** -> **Pages** -> **Connect to Git**。
+4. 选择你的 GitHub 账号及本项目仓库。
 
-您可以在 `vite.config.ts` 中配置代理（仅限本地开发），或在 Vercel 配置文件中设置 Rewrite 规则，但这通常用于后端转发。对于纯前端 React 应用，最稳妥的方案依然是 **方案 A**。
+### 步骤 3: 配置构建设置 (Build Settings)
+在 "Set up builds and deployments" 页面，填写以下信息：
 
-### 总结
+*   **Framework preset**: 选择 `Vite` (如果没有 Vite 选项，选择 None 也可以，只要命令正确)。
+*   **Build command**: `npm run build`
+*   **Build output directory**: `dist`
 
-对于绝大多数个人用户，**请开启 VPN/代理工具** 即可正常在中国使用本应用。
+### 步骤 4: 配置环境变量 (Environment Variables)
+在同一页面的 "Environment variables (advanced)" 部分：
+
+1.  添加 **Node 版本变量** (非常重要，防止构建失败)：
+    *   Variable name: `NODE_VERSION`
+    *   Value: `18.17.0` (或更高)
+2.  添加 **API Key** (如果你仍使用 Gemini):
+    *   Variable name: `API_KEY`
+    *   Value: `你的_KEY`
+3.  如果你改用了 Spark Lite (见下文)，则添加 Spark 相关的 Key：
+    *   `SPARK_APPID` / `SPARK_API_SECRET` / `SPARK_API_KEY`
+
+### 步骤 5: 部署
+点击 **Save and Deploy**。等待几分钟，你的网站就会上线了。
+
+---
+
+## 6. 接入国内大模型 (讯飞星火 Spark Lite) 开发指南
+
+如果你希望彻底摆脱 VPN 限制，将后端的 Google Gemini 替换为国内的讯飞星火 (Spark Lite)，你需要修改代码逻辑。由于星火使用的是 WebSocket 鉴权，你需要进行以下代码重构。
+
+### 准备工作
+1. 去 [讯飞星火控制台](https://console.xfyun.cn/) 注册并创建应用，获取 `APPID`, `APISecret`, `APIKey`。
+2. 安装加密库 (用于生成鉴权签名):
+   ```bash
+   npm install crypto-js
+   npm install --save-dev @types/crypto-js
+   ```
+
+### 代码实现参考
+
+你需要创建一个新的工具文件 `utils/sparkService.ts`，并替换 `components/AIXi001.tsx` 中的 Gemini 调用。
+
+#### 1. 创建 Spark 服务 (`utils/sparkService.ts`)
+
+```typescript
+import CryptoJS from 'crypto-js';
+
+// 配置信息 (建议从环境变量读取)
+const APPID = "你的APPID";
+const API_SECRET = "你的APISecret";
+const API_KEY = "你的APIKey";
+
+export const getSparkResponse = async (messages: {role: string, content: string}[]) => {
+  const url = await getWebsocketUrl();
+  
+  return new Promise<string>((resolve, reject) => {
+    const socket = new WebSocket(url);
+    let fullText = "";
+
+    socket.onopen = () => {
+      const params = {
+        header: { app_id: APPID, uid: "user" },
+        parameter: {
+          chat: { domain: "generalLite", temperature: 0.5, max_tokens: 1024 } // Spark Lite domain
+        },
+        payload: {
+          message: { text: messages }
+        }
+      };
+      socket.send(JSON.stringify(params));
+    };
+
+    socket.onmessage = (event) => {
+      const res = JSON.parse(event.data);
+      if (res.header.code !== 0) {
+        socket.close();
+        reject(res.header.message);
+        return;
+      }
+      if (res.payload.choices.text) {
+        const content = res.payload.choices.text[0].content;
+        fullText += content;
+      }
+      if (res.header.status === 2) {
+        socket.close();
+        resolve(fullText);
+      }
+    };
+
+    socket.onerror = (err) => reject(err);
+  });
+};
+
+// 生成鉴权 URL
+const getWebsocketUrl = (): Promise<string> => {
+  return new Promise((resolve) => {
+    const url = "wss://spark-api.xf-yun.com/v1.1/chat";
+    const host = "spark-api.xf-yun.com";
+    const date = new Date().toUTCString();
+    
+    const algorithm = "hmac-sha256";
+    const headers = "host date request-line";
+    const signatureOrigin = `host: ${host}\ndate: ${date}\nGET /v1.1/chat HTTP/1.1`;
+    
+    const signatureSha = CryptoJS.HmacSHA256(signatureOrigin, API_SECRET);
+    const signature = CryptoJS.enc.Base64.stringify(signatureSha);
+    
+    const authorizationOrigin = `api_key="${API_KEY}", algorithm="${algorithm}", headers="${headers}", signature="${signature}"`;
+    const authorization = btoa(authorizationOrigin);
+    
+    resolve(`${url}?authorization=${authorization}&date=${encodeURI(date)}&host=${host}`);
+  });
+}
+```
+
+#### 2. 修改 AI 组件 (`components/AIXi001.tsx`)
+
+你需要找到 `handleSendMessage` 和 `handleCommsSend` 函数，将 `aiClient.current.models.generateContent` 替换为上述的 `getSparkResponse`。
+
+**示例修改:**
+
+```typescript
+// 引入 Spark 服务
+import { getSparkResponse } from '../utils/sparkService';
+
+// ... 在 handleSendMessage 内部 ...
+
+try {
+  // 转换历史记录格式以适配星火
+  const sparkMessages = [
+    { role: "system", content: systemPrompt }, // 星火部分版本支持 system，或将其拼接到第一条 user 消息
+    ...chatHistory.map(m => ({
+      role: m.role === 'model' ? 'assistant' : 'user',
+      content: m.text
+    })),
+    { role: "user", content: userMsg }
+  ];
+
+  // 调用星火 API
+  const text = await getSparkResponse(sparkMessages);
+  
+  setChatHistory(prev => [...prev, { role: 'model', text: text, timestamp: new Date().toLocaleTimeString() }]);
+  // ...
+}
+```
+
+### 限制说明
+*   **流式传输 (Live)**: 讯飞星火的实时语音流处理方式与 Gemini Live API 完全不同，若要替换语音功能，需要重写整个音频处理逻辑。
+*   **图片生成/识别**: Spark Lite 主要处理文本，图片功能需要调用其专门的 Image API，与 Gemini 的多模态接口不兼容。
