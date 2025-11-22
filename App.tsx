@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CRTLayout } from './components/CRTLayout';
 import { Terminal } from './components/Terminal';
@@ -12,6 +13,9 @@ const App: React.FC = () => {
   // Login State
   const [identity, setIdentity] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('VISITOR');
+  const [customRoleMode, setCustomRoleMode] = useState(false);
+  
   const [loginStep, setLoginStep] = useState<'IDENTITY' | 'PASSWORD'>('IDENTITY');
   const [loginError, setLoginError] = useState('');
 
@@ -76,14 +80,16 @@ const App: React.FC = () => {
     e.preventDefault();
     if (loginStep === 'IDENTITY') {
       soundManager.playEnter();
-      // Allow any non-empty identity
+      // Allow any non-empty identity and role
       if (identity.trim().length > 0) {
+        if (role.trim().length === 0) {
+            setRole('VISITOR'); // Default fallback
+        }
         setLoginStep('PASSWORD');
         setLoginError('');
       } else {
         soundManager.playLoginFail();
         setLoginError('错误：身份标识无效 (INVALID IDENTITY)');
-        setIdentity('');
       }
     } else {
       if (password.toLowerCase() === 'imcu' || password === '1234') { 
@@ -100,6 +106,8 @@ const App: React.FC = () => {
   const handleLogout = () => {
      setIdentity('');
      setPassword('');
+     setRole('VISITOR');
+     setCustomRoleMode(false);
      setLoginStep('IDENTITY');
      setViewState('LOGIN');
      setLoginError('');
@@ -191,17 +199,68 @@ const App: React.FC = () => {
                      soundManager.playKeystroke();
                    }}
                    autoFocus
-                   placeholder={loginStep === 'IDENTITY' ? "输入身份标识 / ENTER ID" : "****"}
+                   placeholder={loginStep === 'IDENTITY' ? "输入姓名 / ENTER NAME" : "****"}
                  />
                </div>
+
+               {/* Role Selection Step */}
+               {loginStep === 'IDENTITY' && (
+                 <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                   <label className="block text-amber-700 text-left text-sm mb-1 mt-4">
+                      职位 / 权限 (POSITION / ROLE)
+                   </label>
+                   
+                   {!customRoleMode ? (
+                      <select
+                        value={role}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'CUSTOM') {
+                                setCustomRoleMode(true);
+                                setRole('');
+                            } else {
+                                setRole(val);
+                            }
+                            soundManager.playKeystroke();
+                        }}
+                        className="w-full bg-black border-b-2 border-amber-500 text-amber-300 text-base p-2 focus:outline-none focus:border-amber-300 font-mono text-center uppercase appearance-none cursor-pointer hover:bg-amber-900/20"
+                      >
+                         <option value="VISITOR">访客 (VISITOR)</option>
+                         <option value="AGENT">特工 (AGENT)</option>
+                         <option value="SCIENTIST">研究员 (SCIENTIST)</option>
+                         <option value="DIRECTOR">主管 (DIRECTOR)</option>
+                         <option value="Ω">Ω (OMEGA)</option>
+                         <option value="CUSTOM">自定义 (CUSTOM)...</option>
+                      </select>
+                   ) : (
+                      <div className="relative">
+                         <input 
+                            type="text"
+                            className="w-full bg-black border-b-2 border-amber-500 text-amber-300 text-base p-2 focus:outline-none focus:border-amber-300 font-mono text-center uppercase"
+                            value={role}
+                            onChange={(e) => { setRole(e.target.value); soundManager.playKeystroke(); }}
+                            placeholder="ENTER ROLE..."
+                            autoFocus
+                         />
+                         <button 
+                           type="button"
+                           onClick={() => { setCustomRoleMode(false); setRole('VISITOR'); }}
+                           className="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-amber-700 hover:text-amber-500 px-2"
+                         >
+                            [RESET]
+                         </button>
+                      </div>
+                   )}
+                 </div>
+               )}
 
                {loginError && <div className="text-red-500 text-sm font-bold animate-pulse">{loginError}</div>}
 
                <button 
                   type="submit"
-                  className="w-full bg-amber-900/30 border border-amber-600 hover:bg-amber-600 hover:text-black text-amber-500 py-2 transition-colors"
+                  className="w-full bg-amber-900/30 border border-amber-600 hover:bg-amber-600 hover:text-black text-amber-500 py-2 transition-colors mt-6"
                >
-                  {loginStep === 'IDENTITY' ? '验证身份 (VERIFY)' : '授权登录 (AUTHENTICATE)'}
+                  {loginStep === 'IDENTITY' ? '下一步 (NEXT)' : '授权登录 (AUTHENTICATE)'}
                </button>
              </form>
              
@@ -217,7 +276,7 @@ const App: React.FC = () => {
 
   return (
     <CRTLayout isOn={true}>
-      <Terminal user={identity} onLogout={handleLogout} />
+      <Terminal user={identity} role={role} onLogout={handleLogout} />
     </CRTLayout>
   );
 };

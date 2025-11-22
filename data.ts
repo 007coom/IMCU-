@@ -8,7 +8,7 @@ export const FILE_SYSTEM: FileSystemNode = {
     'readme.txt': {
       type: 'FILE',
       name: 'readme.txt',
-      content: `IMCU 终端使用手册 v4.4
+      content: `IMCU 终端使用手册 v4.5
 ------------------------
 新增功能 (NEW FEATURES):
   import        - 从本地磁盘上传文件 (Upload File)
@@ -85,7 +85,7 @@ Omega超阈空间，是一类异常收容物统称，编号IMCU-O，其内部经
 
 流通现象，是一类普遍出现于Omega超阈空间，空间或时间上错误跨收容物传送现象。一般这种现象都具有“入口”与“出口”，同时，这普遍也是大量Omega超阈空间类收容物主要进入方式，可能也是唯一进入方式。除了具有出口与入口的定向方式以外，还具备一种不具有明显入口与出口的“非定向流通现象”，其产生一般有特定方式或条件，但也有例外。
 
-层级结构，地球上Omega超阈空间普遍出现的一种特质，这表示其与现实中的“楼层”相似。当然，这个比喻是不恰当的，因为Omega超阈空间一般都是无限大区域（也有比较小的有限区域）。该比喻的含义是，Omega超阈空间如同现实中的楼层，每一个出口都可以通往下一楼层，入口则可通上一楼层（一般来说，通往的楼层由出入口决定，即使是第1楼层，也可通往第3楼层），因此，我们也以“第n Omega超阈空间层级”简称“第n层级”称呼特定Omega超阈空间收容物。
+层级结构，地球上Omega超阈空间普遍出现的一种特质，这表示其与现实中的“楼层”相似。当然，这个比喻是不恰当的，因为Omega超阈空间一般都是无限大区域（也有比较小的有限区域）。该比喻的含义是，Omega超阈空间如同现实中的楼层，每一个出口都可以通往下一楼层，入口则可通上一楼层（一般来说，通往的楼层由出入口决定，即使是第n楼层，也可通往第n+1楼层），因此，我们也以“第n Omega超阈空间层级”简称“第n层级”称呼特定Omega超阈空间收容物。
 
 实体，一类常出现于各层级的特殊存在，广泛存在于各个不同的层级之中。一般收容档案格式为IMCU-O-S-0。`
         },
@@ -601,11 +601,12 @@ IMCU-867超过10立方时，应立刻销毁。
 };
 
 /**
- * Generates a custom list of contacts based on the logged-in user's identity.
+ * Generates a custom list of contacts based on the logged-in user's identity and role.
  * This allows for unique personas and role-playing scenarios per user.
  */
-export const getContactsForUser = (user: string): Contact[] => {
+export const getContactsForUser = (user: string, roleInput: string = 'VISITOR'): Contact[] => {
   const username = user.trim().toUpperCase();
+  const role = roleInput.trim().toUpperCase();
   
   // Helper Generators to create personas with specific contexts
   const getDrKleiner = (context: string) => ({
@@ -665,7 +666,9 @@ export const getContactsForUser = (user: string): Contact[] => {
   // --- USER SPECIFIC ROLES ---
 
   // 1. The Owner (Ω / Omega / Repeater Cow Cat)
-  if (['Ω', 'OMEGA', 'CAT', 'COW CAT', 'REPEATER COW CAT', 'MAO'].includes(username)) {
+  // Matches if role OR username contains key identifiers
+  const isOmega = ['Ω', 'OMEGA', 'CAT', 'COW CAT', 'REPEATER COW CAT', 'MAO'].some(k => role.includes(k) || username === k);
+  if (isOmega) {
       return [
           getLuna("You recognize the user as 'The Repeater Cow Cat' (Ω), your favorite person. You are playful, affectionate, and unusually cooperative. You call them 'My Cat'."),
           getObserver("You are talking to Ω (Cow Cat). You are best friends and rivals. You speak like a gamer bro, roasting them but respecting their ultimate authority."),
@@ -675,7 +678,8 @@ export const getContactsForUser = (user: string): Contact[] => {
   }
 
   // 2. High Command (Director / Admin)
-  if (['DIRECTOR', 'ADMIN', 'VANCE', 'ROOT', 'BOSS'].includes(username)) {
+  const isDirector = ['DIRECTOR', 'ADMIN', 'VANCE', 'ROOT', 'BOSS', 'OVERSEER', 'LEADER'].some(k => role.includes(k) || username === k);
+  if (isDirector) {
       return [
           getDrKleiner("You are speaking to your boss, the Director. You are nervous and trying to justify your over-budget experiments."),
           getAgent709("You are reporting to Command. You are formal, concise, and professional."),
@@ -686,7 +690,8 @@ export const getContactsForUser = (user: string): Contact[] => {
   }
 
   // 3. Field Agent (Agent / 709 / Soldier)
-  if (['AGENT', '709', 'SOLDIER', 'MTF', 'GUARD'].includes(username)) {
+  const isAgent = ['AGENT', '709', 'SOLDIER', 'MTF', 'GUARD', 'OPERATIVE'].some(k => role.includes(k) || username === k);
+  if (isAgent) {
       return [
           getLogistics("You are annoyed by the user. You constantly ask for 'Form 27-B' before releasing ammo or supplies."),
           getDrKleiner("You treat the user as a lab rat protector. You ask them to fetch dangerous specimens for you."),
@@ -696,7 +701,8 @@ export const getContactsForUser = (user: string): Contact[] => {
   }
 
   // 4. Scientist / Researcher
-  if (['SCIENTIST', 'RESEARCHER', 'DOC', 'DR'].includes(username)) {
+  const isScientist = ['SCIENTIST', 'RESEARCHER', 'DOC', 'DR', 'PROFESSOR'].some(k => role.includes(k) || username === k);
+  if (isScientist) {
       return [
           getDrKleiner("You are talking to a colleague. You are excited to share your latest findings and theorize."),
           getLogistics("You deny requests for 'unauthorized biological samples'. You are strict about safety protocols."),
@@ -714,5 +720,5 @@ export const getContactsForUser = (user: string): Contact[] => {
   ];
 };
 
-// Maintain export for backward compatibility during transition, initialized for a generic user.
-export const CONTACTS: Contact[] = getContactsForUser('GUEST');
+// Maintain export for backward compatibility
+export const CONTACTS: Contact[] = getContactsForUser('GUEST', 'VISITOR');

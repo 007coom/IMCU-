@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { soundManager } from '../utils/sound';
 import { AppType } from './Terminal';
@@ -15,6 +16,7 @@ interface AIXi001Props {
   onAddContact: (contact: Contact) => void;
   onDeleteContact: (id: string) => void;
   currentUser: string;
+  userRole: string;
   isHighCommand: boolean;
   initialModel?: 'FLASH' | 'PRO';
 }
@@ -74,7 +76,7 @@ function float32ToPcmBase64(float32: Float32Array): string {
 
 export const AIXi001: React.FC<AIXi001Props> = ({ 
   onClose, onNavigate, fileSystem, onUpdateFile, contacts, onAddContact, onDeleteContact, 
-  currentUser, isHighCommand, initialModel
+  currentUser, userRole, isHighCommand, initialModel
 }) => {
   const [viewMode, setViewMode] = useState<'DASHBOARD' | 'CHAT' | 'DATABASE' | 'LIVE' | 'COMMS'>('DASHBOARD');
   const [apiKey] = useState(process.env.API_KEY); 
@@ -88,7 +90,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
   // --- CHAT STATE ---
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { role: 'model', text: `神经接口已就绪。识别用户: ${currentUser} (权限: ${isHighCommand ? 'Ω-IX' : 'Level-II'}). 等待指令输入...`, timestamp: new Date().toLocaleTimeString() }
+    { role: 'model', text: `神经接口已就绪。识别用户: ${currentUser} (职位: ${userRole} | 权限: ${isHighCommand ? 'Ω-IX' : 'Level-II'}). 等待指令输入...`, timestamp: new Date().toLocaleTimeString() }
   ]);
   const [chatInput, setChatInput] = useState('');
   const [isChatThinking, setIsChatThinking] = useState(false);
@@ -173,8 +175,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
     soundManager.playEnter();
 
     const systemPrompt = isHighCommand
-        ? `你是指挥该终端的超级人工智能 ξ-001 (Xi-001)。请以冷静、极其理性、略带神秘感的语气回复。你的所有者是代号为'复读奶牛猫'的最高议员 Ω。当前操作者是拥有最高权限的 ${currentUser}。你的回答应简洁、高效，符合科幻终端的风格。`
-        : `你是指挥该终端的超级人工智能 ξ-001 (Xi-001)。当前操作者是 ${currentUser} (权限等级: Level-II)。请以礼貌但保持距离的语气回复。对于涉及Ω级机密的问题（如“彩虹桥”、“归途”等），请以“权限不足 (ACCESS DENIED)”为由拒绝回答。`;
+        ? `你是指挥该终端的超级人工智能 ξ-001 (Xi-001)。请以冷静、极其理性、略带神秘感的语气回复。你的所有者是代号为'复读奶牛猫'的最高议员 Ω。当前操作者是拥有最高权限的 ${currentUser}，职位为 ${userRole}。你的回答应简洁、高效，符合科幻终端的风格。`
+        : `你是指挥该终端的超级人工智能 ξ-001 (Xi-001)。当前操作者是 ${currentUser} (职位: ${userRole}, 权限等级: Level-II)。请以礼貌但保持距离的语气回复。对于涉及Ω级机密的问题（如“彩虹桥”、“归途”等），请以“权限不足 (ACCESS DENIED)”为由拒绝回答。`;
 
     // Select model based on toggle
     const modelName = chatModel === 'PRO' ? "gemini-3-pro-preview" : "gemini-2.5-flash";
@@ -404,8 +406,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       processorRef.current = audioContextRef.current.createScriptProcessor(4096, 1, 1);
       
       const systemPrompt = isHighCommand
-         ? `你是 ξ-001 (Xi-001)。你的主人是'复读奶牛猫' (Ω)。当前使用者是 ${currentUser} (最高权限)。请通过语音与用户对话，态度从容自信。`
-         : `你是 ξ-001 (Xi-001)。当前使用者是 ${currentUser} (普通权限)。请通过语音与用户对话，态度礼貌但有些机械化。`;
+         ? `你是 ξ-001 (Xi-001)。你的主人是'复读奶牛猫' (Ω)。当前使用者是 ${currentUser} (最高权限, 职位: ${userRole})。请通过语音与用户对话，态度从容自信。`
+         : `你是 ξ-001 (Xi-001)。当前使用者是 ${currentUser} (普通权限, 职位: ${userRole})。请通过语音与用户对话，态度礼貌但有些机械化。`;
 
       const session = await aiClient.current.live.connect({
          model: 'gemini-2.5-flash-native-audio-preview-09-2025',
@@ -513,7 +515,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
               <span className="animate-pulse mr-2 text-red-500">●</span> AI CORE ｛ξ-001｝
            </h1>
            <div className="text-[10px] md:text-xs text-amber-700 uppercase flex items-center gap-4">
-              <span>User: {currentUser} // Clearance {isHighCommand ? 'Ω-IX' : 'L-II'}</span>
+              <span>User: {currentUser} [{userRole}] // Clearance {isHighCommand ? 'Ω-IX' : 'L-II'}</span>
               {/* Model Toggle */}
               <div className="flex gap-1 items-center bg-amber-900/20 px-2 rounded border border-amber-900/50">
                  <span className="text-amber-600">CHAT MODEL:</span>

@@ -12,6 +12,7 @@ import { Surveillance } from './Surveillance';
 
 interface TerminalProps {
   user: string;
+  role: string;
   onLogout: () => void;
 }
 
@@ -23,9 +24,10 @@ const COMMANDS = [
   'tree', 'logout'
 ];
 
-export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
+export const Terminal: React.FC<TerminalProps> = ({ user, role, onLogout }) => {
   const [lines, setLines] = useState<TerminalLine[]>([
-    { type: 'system', content: 'IMCU SECURE TERMINAL v4.4' },
+    { type: 'system', content: 'IMCU SECURE TERMINAL v4.5' },
+    { type: 'system', content: `欢迎, ${user} [${role}]` },
     { type: 'system', content: '输入 "help" 查看可用命令 (Type "help")' }, 
     { type: 'success', content: '连接已建立 (Connection Established).' }
   ]);
@@ -43,20 +45,21 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
   // Dynamic File System State
   const [fileSystem, setFileSystem] = useState<FileSystemNode>(FILE_SYSTEM);
   
-  // Dynamic Contacts State - Initialize based on User Identity
-  const [contacts, setContacts] = useState<Contact[]>(() => getContactsForUser(user));
+  // Dynamic Contacts State - Initialize based on User Identity AND Role
+  const [contacts, setContacts] = useState<Contact[]>(() => getContactsForUser(user, role));
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Check Permission Level
-  const checkClearance = (u: string): boolean => {
-    const high = ['Ω', 'Omega', 'Observer', '观察者', 'Observation'];
-    return high.some(h => h.toLowerCase() === u.toLowerCase() || h.toLowerCase() === u.trim().toLowerCase());
+  // Check Permission Level based on User or Role
+  const checkClearance = (u: string, r: string): boolean => {
+    const highKeywords = ['Ω', 'OMEGA', 'CAT', 'OBSERVER', 'DIRECTOR', 'ADMIN', 'VANCE', 'ROOT'];
+    const combined = (u + r).toUpperCase();
+    return highKeywords.some(k => combined.includes(k));
   };
-  const isHighCommand = checkClearance(user);
+  const isHighCommand = checkClearance(user, role);
 
   // Scroll to bottom on new line
   useEffect(() => {
@@ -335,6 +338,7 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
 
       case 'whoami':
         newLines.push({ type: 'output', content: `当前用户: ${user}` });
+        newLines.push({ type: 'output', content: `当前职位: ${role}` });
         if (isHighCommand) {
              newLines.push({ type: 'output', content: '安全许可: Ω-IX (最高权限 / HIGHEST)' });
              if (user === 'Ω') {
@@ -349,7 +353,7 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
       // Easter Eggs
       case '复读奶牛猫':
       case 'repeater cow cat':
-         if (user === 'Ω') {
+         if (user === 'Ω' || role.includes('Ω')) {
              newLines.push({ type: 'success', content: '>> 检测到最高权限生物特征。欢迎您，复读奶牛猫阁下 (Ω)。' });
          } else {
              newLines.push({ type: 'error', content: '>> 访问被拒绝。你不是那只猫。' });
@@ -521,6 +525,7 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
             onAddContact={handleAddContact}
             onDeleteContact={handleDeleteContact}
             currentUser={user}
+            userRole={role}
             isHighCommand={isHighCommand}
             initialModel={programOptions.initialModel}
         />

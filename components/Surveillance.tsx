@@ -68,6 +68,7 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
 
     try {
       const isPro = modelType === 'PRO';
+      // Prefer manual override key if provided (common for Vercel deployments), else fallback to ENV
       let apiKey = sessionApiKey || process.env.API_KEY || '';
       
       // Check for AI Studio environment
@@ -94,17 +95,21 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
           addLog('> ERR: MISSING API KEY FOR PRO MODEL.');
           addLog('> PLEASE SET API KEY IN CONFIG MENU OR ENV.');
           setLoading(false);
+          setShowConfig(true);
           return;
       }
 
       if (!apiKey) {
           addLog('> ERR: MISSING API KEY.');
+          addLog('> SOLUTION: OPEN [CONFIG] AND ENTER YOUR KEY.');
+          setShowConfig(true);
           setLoading(false);
           return;
       }
 
       const ai = new GoogleGenAI({ apiKey });
 
+      // Use stable model names. 'preview' often has lower quotas.
       const modelName = isPro ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
       let prompt = "";
       let imagePart = null;
@@ -182,18 +187,36 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
 
     } catch (error: any) {
         console.error(error);
+        
+        const errMsg = error.message || '';
+        
+        // Special Handling for Quota Exceeded / 429 / Resource Exhausted
+        if (errMsg.includes('429') || errMsg.includes('Quota exceeded') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+             addLog('> CRITICAL ERROR: API QUOTA EXHAUSTED (429).');
+             addLog('> CAUSE: VERCEL SHARED QUOTA LIMIT REACHED.');
+             addLog('> SOLUTION: OPEN [CONFIG] AND ENTER A PERSONAL API KEY.');
+             setShowConfig(true); // Auto open config
+             soundManager.playLoginFail();
+             setLoading(false);
+             return;
+        }
+
         // Handle Specific API Key Error for Pro Model in AI Studio
         const isAIStudio = typeof window !== 'undefined' && (window as any).aistudio;
-        if (modelType === 'PRO' && error.message?.includes('Requested entity was not found') && isAIStudio) {
+        if (modelType === 'PRO' && errMsg.includes('Requested entity was not found') && isAIStudio) {
             addLog('> AUTH ERROR. INVALID KEY. RESETTING...');
             try {
-                await (window as any).aistudio.openSelectKey();
-                addLog('> KEY RESET. PLEASE RETRY COMMAND.');
+                if ((window as any).aistudio?.openSelectKey) {
+                    await (window as any).aistudio.openSelectKey();
+                    addLog('> KEY RESET. PLEASE RETRY COMMAND.');
+                } else {
+                    throw new Error("AI Studio SDK missing");
+                }
             } catch (e) {
                 addLog('> MANUAL AUTH REQUIRED.');
             }
         } else {
-            addLog(`> ERR: ${error.message || 'UNKNOWN ERROR'}`);
+            addLog(`> ERR: ${errMsg || 'UNKNOWN ERROR'}`);
             if (modelType === 'PRO') {
                 addLog(`> TIP: IF USING VERCEL/EXTERNAL, ENSURE API KEY SUPPORTS PRO MODEL.`);
                 addLog(`> TIP: TRY SWITCHING TO [FLASH] MODEL.`);
@@ -301,10 +324,10 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
                      value={sessionApiKey}
                      onChange={(e) => setSessionApiKey(e.target.value)}
                      className="w-full bg-zinc-900 border border-amber-800 text-amber-300 p-1 text-xs font-mono focus:border-amber-500 focus:outline-none"
-                     placeholder="Paste Key Here if needed..."
+                     placeholder="Paste Key Here (Starts with AIza...)"
                    />
                    <div className="text-[10px] text-amber-800 mt-1">
-                       Use this if running outside AI Studio without ENV vars.
+                       Use this if running on Vercel/Deployment and the environment key is exhausted (Error 429).
                    </div>
                </div>
 
