@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { soundManager } from '../utils/sound';
 import { AppType, DirectoryNode, FileSystemNode, Contact, ClearanceLevel } from '../types';
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { sendSparkRequest, SparkConfig, SparkVersion, SPARK_ENDPOINTS } from '../utils/spark';
 import { IconBiohazard, IconCircuit, IconDatabase, IconEye, IconHex, IconLock, IconRadioactive, IconSatellite, IconTerminal } from './Icons';
 
@@ -52,44 +52,13 @@ const getAllFiles = (node: DirectoryNode, path: string = ''): { name: string; pa
   return files;
 };
 
-// --- AUDIO UTILS FOR LIVE API ---
-function base64ToFloat32Array(base64: string): Float32Array {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  const int16Array = new Int16Array(bytes.buffer);
-  const float32Array = new Float32Array(int16Array.length);
-  for (let i = 0; i < int16Array.length; i++) {
-    float32Array[i] = int16Array[i] / 32768.0;
-  }
-  return float32Array;
-}
-
-function float32ToPcmBase64(float32: Float32Array): string {
-  const int16Array = new Int16Array(float32.length);
-  for (let i = 0; i < float32.length; i++) {
-    let s = Math.max(-1, Math.min(1, float32[i]));
-    int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-  }
-  let binary = '';
-  const bytes = new Uint8Array(int16Array.buffer);
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
 // --- MAIN COMPONENT ---
 
 export const AIXi001: React.FC<AIXi001Props> = ({ 
   onClose, onNavigate, fileSystem, onUpdateFile, contacts, onAddContact, onDeleteContact, 
   currentUser, userRole, isHighCommand, initialModel
 }) => {
-  const [viewMode, setViewMode] = useState<'DASHBOARD' | 'CHAT' | 'DATABASE' | 'LIVE' | 'COMMS' | 'CONFIG'>('DASHBOARD');
+  const [viewMode, setViewMode] = useState<'DASHBOARD' | 'CHAT' | 'DATABASE' | 'COMMS' | 'CONFIG'>('DASHBOARD');
   
   // --- API CONFIGURATION STATE ---
   const getEnvApiKey = () => {
@@ -156,18 +125,6 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
   const commsEndRef = useRef<HTMLDivElement>(null);
 
-
-  // --- LIVE API STATE (Gemini 2.5 Flash Audio) ---
-  const [isLiveConnected, setIsLiveConnected] = useState(false);
-  const [liveStatus, setLiveStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'LISTENING' | 'SPEAKING'>('DISCONNECTED');
-  const [audioVisualizerData, setAudioVisualizerData] = useState<number[]>(new Array(20).fill(5));
-  
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const liveSessionRef = useRef<any>(null);
-  const nextStartTimeRef = useRef<number>(0);
-
   // --- INITIALIZATION ---
   useEffect(() => {
     if (apiKey) {
@@ -179,13 +136,10 @@ export const AIXi001: React.FC<AIXi001Props> = ({
         neural: Math.min(100, Math.max(85, 90 + (Math.random() * 10 - 5))),
         defense: Math.min(100, Math.max(92, 98 + (Math.random() * 4 - 2))),
       });
-      if (!isLiveConnected) {
-         setAudioVisualizerData(prev => prev.map(() => Math.random() * 30 + 5));
-      }
     }, 100);
 
     return () => clearInterval(frameInterval);
-  }, [apiKey, isLiveConnected, provider]);
+  }, [apiKey, provider]);
 
   // --- SPARK CONFIG AUTO-CORRECTION ---
   useEffect(() => {
@@ -577,131 +531,6 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   };
 
 
-  // --- HANDLERS: LIVE API (Voice) ---
-  // NOTE: LIVE API IS GEMINI ONLY
-  const disconnectLive = () => {
-     if (processorRef.current) {
-        processorRef.current.disconnect();
-        processorRef.current = null;
-     }
-     if (sourceRef.current) {
-        sourceRef.current.disconnect();
-        sourceRef.current = null;
-     }
-     if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-     }
-     liveSessionRef.current = null; 
-     setIsLiveConnected(false);
-     setLiveStatus('DISCONNECTED');
-  };
-
-  const connectLive = async () => {
-    if (provider === 'SPARK') {
-        setChatHistory(prev => [...prev, { role: 'model', text: `ERR: LIVE_VOICE_LINK_INCOMPATIBLE_WITH_SPARK_PROTOCOL.`, timestamp: new Date().toLocaleTimeString() }]);
-        setViewMode('CHAT');
-        return;
-    }
-
-    if (!aiClient.current) return;
-    soundManager.playEnter();
-    setLiveStatus('CONNECTING');
-
-    try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      audioContextRef.current = new AudioContextClass({ sampleRate: 16000 }); 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
-      processorRef.current = audioContextRef.current.createScriptProcessor(4096, 1, 1);
-      
-      const systemPrompt = isHighCommand
-         ? `你是 ξ-001 (Xi-001)。你的主人是'复读奶牛猫' (Ω)。当前使用者是 ${currentUser} (最高权限, 职位: ${userRole})。请通过语音与用户对话，态度从容自信。`
-         : `你是 ξ-001 (Xi-001)。当前使用者是 ${currentUser} (普通权限, 职位: ${userRole})。请通过语音与用户对话，态度礼貌但有些机械化。`;
-
-      const session = await aiClient.current.live.connect({
-         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-         config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-               voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } 
-            },
-            systemInstruction: systemPrompt
-         },
-         callbacks: {
-            onopen: () => {
-               setLiveStatus('LISTENING');
-               setIsLiveConnected(true);
-            },
-            onmessage: async (msg) => {
-               const audioData = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-               if (audioData) {
-                  setLiveStatus('SPEAKING');
-                  playPcmAudio(audioData);
-                  setAudioVisualizerData(prev => prev.map(() => Math.random() * 100)); 
-               } else {
-                  if (msg.serverContent?.turnComplete) {
-                      setLiveStatus('LISTENING');
-                  }
-               }
-            },
-            onclose: () => {
-               disconnectLive();
-            },
-            onerror: (err) => {
-               console.error(err);
-               disconnectLive();
-               soundManager.playLoginFail();
-            }
-         }
-      });
-
-      liveSessionRef.current = session;
-
-      // Explicitly type 'e' as 'any' to avoid TS build errors with deprecated ScriptProcessor
-      processorRef.current.onaudioprocess = (e: any) => {
-         const inputData = e.inputBuffer.getChannelData(0);
-         let sum = 0;
-         for(let i=0; i<inputData.length; i+=100) sum += Math.abs(inputData[i]);
-         const avg = sum / (inputData.length/100);
-         
-         setAudioVisualizerData(prev => prev.map((v, i) => (i % 2 === 0) ? avg * 500 : v * 0.9)); 
-
-         const b64Pcm = float32ToPcmBase64(inputData);
-         session.sendRealtimeInput({
-            media: { mimeType: 'audio/pcm', data: b64Pcm }
-         });
-      };
-
-      sourceRef.current.connect(processorRef.current);
-      processorRef.current.connect(audioContextRef.current.destination);
-
-    } catch (err) {
-       console.error(err);
-       setLiveStatus('DISCONNECTED');
-       soundManager.playLoginFail();
-    }
-  };
-
-  const playPcmAudio = async (base64String: string) => {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      const playbackCtx = new AudioContextClass({ sampleRate: 24000 }); 
-      
-      const pcmData = base64ToFloat32Array(base64String);
-      const buffer = playbackCtx.createBuffer(1, pcmData.length, 24000);
-      buffer.getChannelData(0).set(pcmData);
-      
-      const source = playbackCtx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(playbackCtx.destination);
-      
-      const now = playbackCtx.currentTime;
-      nextStartTimeRef.current = Math.max(nextStartTimeRef.current, now);
-      source.start(nextStartTimeRef.current);
-      nextStartTimeRef.current += buffer.duration;
-  };
-
-
   // --- RENDER HELPERS ---
 
   const TabButton = ({ mode, label, icon }: { mode: any, label: string, icon?: React.ReactNode }) => (
@@ -748,7 +577,6 @@ export const AIXi001: React.FC<AIXi001Props> = ({
         </div>
         <button 
            onClick={() => { 
-             if (isLiveConnected) disconnectLive();
              soundManager.playKeystroke(); 
              onClose(); 
            }}
@@ -764,7 +592,6 @@ export const AIXi001: React.FC<AIXi001Props> = ({
           <TabButton mode="CHAT" label="指令 // PROTOCOL" icon={<IconTerminal className="w-4 h-4"/>} />
           <TabButton mode="DATABASE" label="档案 // DATABASE" icon={<IconDatabase className="w-4 h-4"/>} />
           <TabButton mode="COMMS" label="通讯 // COMMS" icon={<IconSatellite className="w-4 h-4"/>} />
-          <TabButton mode="LIVE" label="神经链路 // UPLINK" icon={<IconEye className="w-4 h-4"/>} />
           <TabButton mode="CONFIG" label="设置 // CONFIG" icon={<IconCircuit className="w-4 h-4"/>} />
       </div>
 
@@ -812,7 +639,6 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                 <p>系统完整性校验通过。</p>
                 <p>当前提供商: <span className="text-amber-300">{provider} (DEFAULT)</span></p>
                 <p>当前模型: {provider === 'GEMINI' ? (chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash') : (sparkVersion === 'v1.1' ? 'iFLYTEK Spark Lite' : `iFLYTEK Spark ${sparkVersion}`)}</p>
-                <p>实时语音: {provider === 'GEMINI' ? 'AVAILABLE' : 'UNAVAILABLE (Spark)'}</p>
                 <button 
                     onClick={() => setViewMode('CONFIG')}
                     className="mt-4 border border-amber-700 text-amber-500 px-2 py-1 text-xs hover:bg-amber-900/50"
@@ -1049,7 +875,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
               {/* Chat Window */}
               {activeContact && !isAddingContact && (
-                  <div className="flex-1 flex flex-col border border-amber-600/50 bg-black relative h-full overflow-hidden animate-in slide-in-from-right-4 duration-200">
+                  <div key={activeContact.id} className="flex-1 flex flex-col border border-amber-600/50 bg-black relative h-full overflow-hidden animate-in slide-in-from-right-4 duration-200">
                       {/* Contact Header */}
                       <div className="flex justify-between items-center bg-amber-900/20 p-2 border-b border-amber-600/50">
                          <div className="flex flex-col">
@@ -1116,51 +942,6 @@ export const AIXi001: React.FC<AIXi001Props> = ({
               )}
            </div>
         )}
-
-        {/* 5. LIVE API MODE */}
-        {viewMode === 'LIVE' && (
-           <div className="h-full flex flex-col items-center justify-center relative overflow-hidden">
-               <div className="absolute inset-0 bg-[linear-gradient(rgba(245,158,11,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(245,158,11,0.03)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
-               <div className="relative z-10 flex flex-col items-center gap-8 w-full max-w-lg">
-                  <div className={`text-xl tracking-[0.3em] font-bold ${liveStatus === 'SPEAKING' ? 'text-green-500 animate-pulse' : liveStatus === 'LISTENING' ? 'text-amber-500' : 'text-red-500'}`}>
-                      STATUS: {liveStatus}
-                  </div>
-                  <div className="h-32 md:h-48 flex items-end justify-center gap-1 w-full px-8">
-                      {audioVisualizerData.map((val, i) => (
-                          <div 
-                             key={i} 
-                             className={`w-2 md:w-4 bg-amber-500/80 transition-all duration-75 ease-out ${liveStatus === 'DISCONNECTED' ? 'opacity-20 h-1' : ''}`}
-                             style={{ 
-                                height: isLiveConnected ? `${Math.min(100, val)}%` : '4px',
-                                opacity: Math.max(0.3, val / 100)
-                             }}
-                          ></div>
-                      ))}
-                  </div>
-                  {!isLiveConnected ? (
-                     <button 
-                        onClick={connectLive}
-                        className="group relative px-8 py-4 bg-black border-2 border-amber-600 text-amber-500 hover:bg-amber-600 hover:text-black transition-all duration-300 shadow-[0_0_20px_rgba(217,119,6,0.2)]"
-                     >
-                        <div className="text-2xl font-bold tracking-widest flex items-center gap-2"><IconEye className="w-6 h-6" /> 建立神经连接</div>
-                        <div className="text-xs mt-1 group-hover:text-black/70">ESTABLISH UPLINK</div>
-                     </button>
-                  ) : (
-                     <button 
-                        onClick={disconnectLive}
-                        className="px-8 py-4 bg-red-900/20 border-2 border-red-600 text-red-500 hover:bg-red-600 hover:text-black transition-all duration-300"
-                     >
-                        <div className="text-xl font-bold tracking-widest">终止连接</div>
-                        <div className="text-xs mt-1">TERMINATE LINK</div>
-                     </button>
-                  )}
-                  <div className="text-xs text-amber-800 max-w-md text-center">
-                      警告：实时音频流未加密。请勿在连接时讨论Ω级机密。
-                      <br/>{provider === 'SPARK' ? '注意：讯飞星火模式下不支持实时语音功能。' : 'WARNING: Audio stream unencrypted.'}
-                  </div>
-               </div>
-           </div>
-        )}
         
         {/* 6. CONFIG MODE (NEW) */}
         {viewMode === 'CONFIG' && (
@@ -1187,7 +968,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                     className={`p-4 border text-left transition-all ${provider === 'GEMINI' ? 'bg-amber-600 text-black border-amber-600' : 'border-amber-800 text-amber-600 hover:border-amber-500'}`}
                                 >
                                     <div className="font-bold text-lg">GOOGLE GEMINI</div>
-                                    <div className="text-xs opacity-70">Requires VPN in China. Supports Audio Live.</div>
+                                    <div className="text-xs opacity-70">Requires VPN in China.</div>
                                 </button>
                             </div>
                         </div>
