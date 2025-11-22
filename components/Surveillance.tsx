@@ -25,6 +25,7 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
   const [showHelp, setShowHelp] = useState(false);
   const [modelType, setModelType] = useState<'FLASH' | 'PRO'>(initialModel || 'FLASH');
   const [resolution, setResolution] = useState<'1K' | '2K'>('1K');
+  const [sessionApiKey, setSessionApiKey] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,21 +66,44 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
     setLoading(true);
     soundManager.playEnter();
 
-    // Use process.env.API_KEY directly. For 'PRO', we ensure the user has selected a key via the window.aistudio interface if available.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
     try {
       const isPro = modelType === 'PRO';
+      let apiKey = sessionApiKey || process.env.API_KEY || '';
       
-      // API Key Check for Pro Model (Gemini 3 Pro Image)
-      if (isPro && (window as any).aistudio) {
-         const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-         if (!hasKey) {
-            addLog('> SECURITY ALERT: HIGHER CLEARANCE REQUIRED.');
-            addLog('> INITIATING AUTHENTICATION PROTOCOL...');
-            await (window as any).aistudio.openSelectKey();
-         }
+      // Check for AI Studio environment
+      const isAIStudio = typeof window !== 'undefined' && (window as any).aistudio;
+
+      // Only try to access aistudio API if checking PRO features AND in AI Studio
+      if (isPro && isAIStudio) {
+           try {
+              const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+              if (!hasKey) {
+                  addLog('> SECURITY ALERT: HIGHER CLEARANCE REQUIRED.');
+                  addLog('> INITIATING AUTHENTICATION PROTOCOL...');
+                  await (window as any).aistudio.openSelectKey();
+              }
+              // In AI Studio, env key might be updated automatically, but usually we rely on the injection.
+              // We assume valid key presence after selection.
+           } catch (err) {
+              console.warn("AI Studio Auth Check Failed", err);
+           }
       }
+      
+      // If on Vercel/Deployment (isAIStudio is false) and using PRO model without a manually set key
+      if (isPro && !isAIStudio && !apiKey) {
+          addLog('> ERR: MISSING API KEY FOR PRO MODEL.');
+          addLog('> PLEASE SET API KEY IN CONFIG MENU OR ENV.');
+          setLoading(false);
+          return;
+      }
+
+      if (!apiKey) {
+          addLog('> ERR: MISSING API KEY.');
+          setLoading(false);
+          return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
 
       const modelName = isPro ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
       let prompt = "";
@@ -158,8 +182,9 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
 
     } catch (error: any) {
         console.error(error);
-        // Handle Specific API Key Error for Pro Model
-        if (modelType === 'PRO' && error.message?.includes('Requested entity was not found') && (window as any).aistudio) {
+        // Handle Specific API Key Error for Pro Model in AI Studio
+        const isAIStudio = typeof window !== 'undefined' && (window as any).aistudio;
+        if (modelType === 'PRO' && error.message?.includes('Requested entity was not found') && isAIStudio) {
             addLog('> AUTH ERROR. INVALID KEY. RESETTING...');
             try {
                 await (window as any).aistudio.openSelectKey();
@@ -170,6 +195,7 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
         } else {
             addLog(`> ERR: ${error.message || 'UNKNOWN ERROR'}`);
             if (modelType === 'PRO') {
+                addLog(`> TIP: IF USING VERCEL/EXTERNAL, ENSURE API KEY SUPPORTS PRO MODEL.`);
                 addLog(`> TIP: TRY SWITCHING TO [FLASH] MODEL.`);
             }
         }
@@ -224,7 +250,7 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
         
         {/* Config Panel Overlay */}
         {showConfig && (
-           <div className="absolute top-0 right-0 z-50 bg-black border border-amber-600 p-4 shadow-[0_0_20px_rgba(217,119,6,0.3)] w-64 animate-in slide-in-from-right-4 duration-200">
+           <div className="absolute top-0 right-0 z-50 bg-black border border-amber-600 p-4 shadow-[0_0_20px_rgba(217,119,6,0.3)] w-64 animate-in slide-in-from-right-4 duration-200 overflow-y-auto max-h-full">
                <div className="text-amber-500 font-bold mb-4 border-b border-amber-800 pb-2">AI CORE CONFIG</div>
                
                <div className="mb-4">
@@ -267,6 +293,20 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
                        </div>
                    </div>
                )}
+               
+               <div className="mb-4 border-t border-amber-900/50 pt-2">
+                   <label className="block text-xs text-amber-700 mb-2">MANUAL API KEY (OVERRIDE)</label>
+                   <input 
+                     type="password"
+                     value={sessionApiKey}
+                     onChange={(e) => setSessionApiKey(e.target.value)}
+                     className="w-full bg-zinc-900 border border-amber-800 text-amber-300 p-1 text-xs font-mono focus:border-amber-500 focus:outline-none"
+                     placeholder="Paste Key Here if needed..."
+                   />
+                   <div className="text-[10px] text-amber-800 mt-1">
+                       Use this if running outside AI Studio without ENV vars.
+                   </div>
+               </div>
 
                <button 
                  onClick={() => setShowConfig(false)}

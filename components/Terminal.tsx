@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { FileSystemNode, DirectoryNode, FileNode, TerminalLine, Contact, ClearanceLevel } from '../types';
-import { FILE_SYSTEM, CONTACTS } from '../data';
+import { FILE_SYSTEM, getContactsForUser } from '../data';
 import { soundManager } from '../utils/sound';
 import { TypingText } from './TypingText';
 import { SystemMonitor } from './SystemMonitor';
@@ -43,8 +43,8 @@ export const Terminal: React.FC<TerminalProps> = ({ user, onLogout }) => {
   // Dynamic File System State
   const [fileSystem, setFileSystem] = useState<FileSystemNode>(FILE_SYSTEM);
   
-  // Dynamic Contacts State
-  const [contacts, setContacts] = useState<Contact[]>(CONTACTS);
+  // Dynamic Contacts State - Initialize based on User Identity
+  const [contacts, setContacts] = useState<Contact[]>(() => getContactsForUser(user));
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
