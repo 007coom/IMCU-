@@ -97,9 +97,9 @@ export const sendSparkRequest = async (
         }
       }, 30000);
 
-      // Transform messages: Spark places system prompt in payload or as first message
+      // Transform messages: Spark expects system prompt as the first message with role 'system'
       const payloadMessages = [
-          { role: "user", content: systemPrompt }, 
+          { role: "system", content: systemPrompt }, 
           ...messages
       ];
 
