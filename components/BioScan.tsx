@@ -10,7 +10,7 @@ export const BioScan: React.FC<BioScanProps> = ({ onClose }) => {
   const [frame, setFrame] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => setFrame(f => f + 1), 150);
+    const interval = window.setInterval(() => setFrame(f => f + 1), 150);
     const keyHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key.toLowerCase() === 'q') {
         onClose();

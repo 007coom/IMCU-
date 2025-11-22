@@ -1,9 +1,13 @@
 
+
 import React, { useEffect, useState, useRef } from 'react';
 import { soundManager } from '../utils/sound';
-import { AppType } from './Terminal';
-import { DirectoryNode, FileSystemNode, Contact, ClearanceLevel } from '../types';
+import { AppType, DirectoryNode, FileSystemNode, Contact, ClearanceLevel } from '../types';
 import { GoogleGenAI, Modality } from "@google/genai";
+import { IconBiohazard, IconCircuit, IconDatabase, IconEye, IconHex, IconLock, IconRadioactive, IconSatellite, IconTerminal } from './Icons';
+
+// Declare process for TypeScript compiler compatibility
+declare const process: any;
 
 // --- TYPES & HELPERS ---
 
@@ -119,6 +123,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [newContactName, setNewContactName] = useState('');
   const [newContactRole, setNewContactRole] = useState('');
+  const [newContactBio, setNewContactBio] = useState('');
   const [newContactPersona, setNewContactPersona] = useState('');
 
   const commsEndRef = useRef<HTMLDivElement>(null);
@@ -141,7 +146,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       aiClient.current = new GoogleGenAI({ apiKey });
     }
     
-    const frameInterval = setInterval(() => {
+    const frameInterval = window.setInterval(() => {
       setActiveSubsystems({
         neural: Math.min(100, Math.max(85, 90 + (Math.random() * 10 - 5))),
         defense: Math.min(100, Math.max(92, 98 + (Math.random() * 4 - 2))),
@@ -265,7 +270,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                 { role: 'user', parts: [{ text: msgText }]}
             ],
             config: {
-                systemInstruction: activeContact.personaPrompt || "You are an IMCU Agent."
+                systemInstruction: activeContact.personaPrompt || `You are ${activeContact.name}.`
             }
         });
 
@@ -304,6 +309,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
           role: newContactRole || 'Unknown Agent',
           status: 'ONLINE',
           clearance: ClearanceLevel.I,
+          bio: newContactBio || "暂无描述",
           personaPrompt: newContactPersona || `You are ${newContactName}, a ${newContactRole} at the IMCU Foundation. Respond in character.`
       };
       
@@ -314,6 +320,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       // Reset fields
       setNewContactName('');
       setNewContactRole('');
+      setNewContactBio('');
       setNewContactPersona('');
       
       soundManager.playLoginSuccess();
@@ -453,6 +460,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
          let sum = 0;
          for(let i=0; i<inputData.length; i+=100) sum += Math.abs(inputData[i]);
          const avg = sum / (inputData.length/100);
+         // Fixed: added arguments v and i to the map function
          setAudioVisualizerData(prev => prev.map((v, i) => (i % 2 === 0) ? avg * 500 : v * 0.9)); 
 
          const b64Pcm = float32ToPcmBase64(inputData);
@@ -492,13 +500,13 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
   // --- RENDER HELPERS ---
 
-  const TabButton = ({ mode, label, icon }: { mode: any, label: string, icon?: string }) => (
+  const TabButton = ({ mode, label, icon }: { mode: any, label: string, icon?: React.ReactNode }) => (
      <button 
-        className={`px-3 md:px-4 py-1 md:py-2 border-r border-t border-amber-900/50 text-xs md:text-sm tracking-wider transition-all 
+        className={`px-3 md:px-4 py-1 md:py-2 border-r border-t border-amber-900/50 text-xs md:text-sm tracking-wider transition-all flex items-center gap-2
         ${viewMode === mode ? 'bg-amber-500 text-black font-bold border-amber-500' : 'text-amber-700 hover:bg-amber-900/20 hover:text-amber-400'}`}
         onClick={() => { soundManager.playKeystroke(); setViewMode(mode); }}
      >
-        {icon && <span className="mr-2">{icon}</span>}
+        {icon}
         {label}
      </button>
   );
@@ -512,7 +520,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       <div className="flex justify-between border-b-4 border-amber-600 pb-2 mb-2 items-end shrink-0">
         <div>
            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-amber-500 tracking-widest flex items-center">
-              <span className="animate-pulse mr-2 text-red-500">●</span> AI CORE ｛ξ-001｝
+              <span className="animate-pulse mr-2 text-red-500"><IconRadioactive className="w-8 h-8 inline"/></span> AI CORE ｛ξ-001｝
            </h1>
            <div className="text-[10px] md:text-xs text-amber-700 uppercase flex items-center gap-4">
               <span>User: {currentUser} [{userRole}] // Clearance {isHighCommand ? 'Ω-IX' : 'L-II'}</span>
@@ -541,19 +549,19 @@ export const AIXi001: React.FC<AIXi001Props> = ({
              soundManager.playKeystroke(); 
              onClose(); 
            }}
-           className="border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black px-3 py-1 text-sm transition-colors uppercase"
+           className="border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black px-3 py-1 text-sm transition-colors uppercase flex items-center gap-2"
         >
-           [ 断开 DISCONNECT ]
+           <IconLock className="w-4 h-4" /> [ 断开 DISCONNECT ]
         </button>
       </div>
 
       {/* TABS */}
       <div className="flex border-b border-amber-800 mb-4 shrink-0 bg-black/50 overflow-x-auto">
-          <TabButton mode="DASHBOARD" label="总览 // DASHBOARD" />
-          <TabButton mode="CHAT" label="指令 // PROTOCOL" icon=">" />
-          <TabButton mode="DATABASE" label="档案 // DATABASE" icon="≡" />
-          <TabButton mode="COMMS" label="通讯 // COMMS" icon="@" />
-          <TabButton mode="LIVE" label="神经链路 // UPLINK" icon="((•))" />
+          <TabButton mode="DASHBOARD" label="总览 // DASHBOARD" icon={<IconHex className="w-4 h-4"/>} />
+          <TabButton mode="CHAT" label="指令 // PROTOCOL" icon={<IconTerminal className="w-4 h-4"/>} />
+          <TabButton mode="DATABASE" label="档案 // DATABASE" icon={<IconDatabase className="w-4 h-4"/>} />
+          <TabButton mode="COMMS" label="通讯 // COMMS" icon={<IconSatellite className="w-4 h-4"/>} />
+          <TabButton mode="LIVE" label="神经链路 // UPLINK" icon={<IconEye className="w-4 h-4"/>} />
       </div>
 
       {/* CONTENT AREA */}
@@ -565,12 +573,12 @@ export const AIXi001: React.FC<AIXi001Props> = ({
             {/* Left: Status */}
             <div className="order-2 md:order-1 flex flex-col gap-4">
                 <div className="border border-amber-800/50 p-4 bg-amber-900/5">
-                    <div className="text-amber-300 mb-2 font-bold border-b border-amber-800/50 pb-1">子系统 SUBSYSTEMS</div>
+                    <div className="text-amber-300 mb-2 font-bold border-b border-amber-800/50 pb-1 flex items-center gap-2"><IconCircuit className="w-4 h-4"/> 子系统 SUBSYSTEMS</div>
                     <div className="flex flex-col gap-2 text-sm">
-                        <button onClick={() => onNavigate('SYS')} className="text-left hover:text-amber-300 hover:translate-x-1 transition-all">&gt; SYSTEM_MONITOR</button>
-                        <button onClick={() => onNavigate('MAP')} className="text-left hover:text-amber-300 hover:translate-x-1 transition-all">&gt; GLOBAL_DEFENSE</button>
-                        <button onClick={() => onNavigate('SCAN')} className="text-left text-red-400 hover:text-red-300 hover:translate-x-1 transition-all">&gt; BIO_SCANNER</button>
-                        <button onClick={() => onNavigate('CAM')} className="text-left text-red-400 hover:text-red-300 hover:translate-x-1 transition-all">&gt; CCTV_SURVEILLANCE</button>
+                        <button onClick={() => onNavigate('SYS')} className="text-left hover:text-amber-300 hover:translate-x-1 transition-all flex items-center gap-2"><IconCircuit className="w-3 h-3"/> SYSTEM_MONITOR</button>
+                        <button onClick={() => onNavigate('MAP')} className="text-left hover:text-amber-300 hover:translate-x-1 transition-all flex items-center gap-2"><IconSatellite className="w-3 h-3"/> GLOBAL_DEFENSE</button>
+                        <button onClick={() => onNavigate('SCAN')} className="text-left text-red-400 hover:text-red-300 hover:translate-x-1 transition-all flex items-center gap-2"><IconBiohazard className="w-3 h-3"/> BIO_SCANNER</button>
+                        <button onClick={() => onNavigate('CAM')} className="text-left text-red-400 hover:text-red-300 hover:translate-x-1 transition-all flex items-center gap-2"><IconEye className="w-3 h-3"/> CCTV_SURVEILLANCE</button>
                     </div>
                 </div>
                 <div className="border border-amber-800/50 p-3 bg-amber-900/5 text-xs space-y-2">
@@ -587,8 +595,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                     <div className="absolute inset-0 rounded-full border-4 border-double border-amber-900/40 animate-[spin_20s_linear_infinite]"></div>
                     <div className="absolute inset-4 rounded-full border border-dashed border-amber-600/60 animate-[spin_10s_linear_infinite_reverse]"></div>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 bg-amber-950 rounded-full shadow-[0_0_50px_rgba(245,158,11,0.3)] flex items-center justify-center">
-                         <div className="w-16 h-16 bg-amber-500/20 rounded-full animate-pulse flex items-center justify-center border border-amber-500">
-                            <div className="w-2 h-2 bg-amber-100 rounded-full shadow-[0_0_10px_#fff]"></div>
+                         <div className="w-16 h-16 text-amber-500/20 rounded-full animate-pulse flex items-center justify-center">
+                            <IconRadioactive className="w-12 h-12" />
                          </div>
                     </div>
                  </div>
@@ -660,8 +668,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                           onClick={() => { setSelectedFile(file); setIsCreatingFile(false); setAnalysisResult(''); setIsAnalyzing(false); soundManager.playKeystroke(); }}
                           className={`w-full text-left p-3 border-b border-amber-900/20 hover:bg-amber-500/10 transition-colors group ${selectedFile?.path === file.path ? 'bg-amber-500/20 border-l-4 border-l-amber-500' : ''}`}
                       >
-                          <div className="font-bold text-amber-300 text-sm group-hover:text-amber-100">{file.name}</div>
-                          <div className="text-[10px] text-amber-800 truncate">{file.path}</div>
+                          <div className="font-bold text-amber-300 text-sm group-hover:text-amber-100 flex items-center gap-2"><IconDatabase className="w-3 h-3" /> {file.name}</div>
+                          <div className="text-[10px] text-amber-800 truncate pl-5">{file.path}</div>
                       </button>
                   ))}
               </div>
@@ -693,7 +701,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
               {selectedFile && !isCreatingFile && (
                  <div className="flex-1 flex flex-col border border-amber-600/50 bg-black relative h-full overflow-hidden animate-in slide-in-from-right-4 duration-200">
                      <div className="flex justify-between items-center bg-amber-900/20 p-2 border-b border-amber-600/50">
-                        <span className="font-bold text-amber-300 ml-2">{selectedFile.name}</span>
+                        <span className="font-bold text-amber-300 ml-2 flex items-center gap-2"><IconLock className="w-3 h-3" /> {selectedFile.name}</span>
                         <button onClick={() => setSelectedFile(null)} className="md:hidden border border-amber-600 px-2 text-xs text-amber-500">关闭</button>
                      </div>
                      
@@ -800,10 +808,20 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                           </div>
 
                           <div>
-                              <label className="block text-xs text-amber-700 mb-1">个人简介/人格设定 (INTRODUCTION / PERSONA)</label>
+                              <label className="block text-xs text-amber-700 mb-1">个人简介 (BIO - VISIBLE)</label>
                               <textarea 
-                                  className="w-full h-32 bg-zinc-900 border border-amber-800 text-amber-300 p-2 font-mono focus:border-amber-500 focus:outline-none resize-none text-base md:text-sm" 
-                                  placeholder="Describe how this person speaks and behaves. This serves as the AI instruction."
+                                  className="w-full h-24 bg-zinc-900 border border-amber-800 text-amber-300 p-2 font-mono focus:border-amber-500 focus:outline-none resize-none text-base md:text-sm" 
+                                  placeholder="Description shown in the contact info panel."
+                                  value={newContactBio}
+                                  onChange={(e) => setNewContactBio(e.target.value)}
+                              />
+                          </div>
+
+                          <div>
+                              <label className="block text-xs text-amber-700 mb-1">AI 扮演提示词 (PERSONA PROMPT - HIDDEN)</label>
+                              <textarea 
+                                  className="w-full h-24 bg-zinc-900 border border-amber-800 text-amber-300 p-2 font-mono focus:border-amber-500 focus:outline-none resize-none text-base md:text-sm" 
+                                  placeholder="Instructions for the AI (e.g., 'You are...')."
                                   value={newContactPersona}
                                   onChange={(e) => setNewContactPersona(e.target.value)}
                               />
@@ -854,7 +872,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                       </div>
                       {showPersonaBrief && (
                           <div className="px-4 py-2 bg-amber-900/5 border-b border-amber-900/30 text-xs text-amber-400/80 italic font-mono leading-relaxed animate-in fade-in">
-                              "{activeContact.personaPrompt}"
+                              "{activeContact.bio}"
                           </div>
                       )}
 
@@ -912,7 +930,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                         onClick={connectLive}
                         className="group relative px-8 py-4 bg-black border-2 border-amber-600 text-amber-500 hover:bg-amber-600 hover:text-black transition-all duration-300 shadow-[0_0_20px_rgba(217,119,6,0.2)]"
                      >
-                        <div className="text-2xl font-bold tracking-widest">建立神经连接</div>
+                        <div className="text-2xl font-bold tracking-widest flex items-center gap-2"><IconEye className="w-6 h-6" /> 建立神经连接</div>
                         <div className="text-xs mt-1 group-hover:text-black/70">ESTABLISH UPLINK</div>
                      </button>
                   ) : (

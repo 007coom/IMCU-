@@ -3,6 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { soundManager } from '../utils/sound';
 
+// Declare process for TypeScript compiler compatibility
+declare const process: any;
+
 interface SurveillanceProps {
   onClose: () => void;
   initialModel?: 'FLASH' | 'PRO';
@@ -31,7 +34,7 @@ export const Surveillance: React.FC<SurveillanceProps> = ({ onClose, initialMode
   const inputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
-    const interval = setInterval(() => setBlink(b => !b), 1000);
+    const interval = window.setInterval(() => setBlink(b => !b), 1000);
     const keyHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();

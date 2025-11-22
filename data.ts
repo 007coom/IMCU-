@@ -1,5 +1,35 @@
 
+
+
+
+
 import { FileSystemNode, Contact, ClearanceLevel } from './types';
+
+export const LATIN_MOTTOS = [
+  { text: "VIGILANTIA AETERNA", trans: "Eternal Vigilance" },
+  { text: "ABYSSUS ABYSSUM INVOCAT", trans: "Deep calls to Deep" },
+  { text: "EX TENEBRIS LUX", trans: "From Darkness, Light" },
+  { text: "MEMENTO MORI", trans: "Remember You Must Die" },
+  { text: "ORDO AB CHAO", trans: "Order out of Chaos" },
+  { text: "AD ASTRA PER ASPERA", trans: "To the Stars through Difficulties" },
+  { text: "CUSTOS VERITATIS", trans: "Guardian of Truth" },
+  { text: "NON DUCOR DUCO", trans: "I am not led, I lead" },
+  { text: "SIC MUNDUS CREATUS EST", trans: "Thus the world was created" },
+  { text: "OMNE TRINUM PERFECTUM", trans: "Everything threefold is perfect" }
+];
+
+export const COUNCIL_QUOTES = [
+  "Reality is a consensus. We control the vote.",
+  "We die in the dark so you may live in the light.",
+  "The void stares back. Do not blink.",
+  "Sanity is a privilege, not a right.",
+  "To secure, contain, and protect is to deny the chaos its due.",
+  "Your clearance defines your reality.",
+  "History is written by the survivors. We ensure there are survivors.",
+  "Knowledge without wisdom is a load of books on the back of an ass.",
+  "The world is thinner than you think.",
+  "Trust is a liability. Protocol is absolute."
+];
 
 export const FILE_SYSTEM: FileSystemNode = {
   type: 'DIR',
@@ -609,71 +639,88 @@ export const getContactsForUser = (user: string, roleInput: string = 'VISITOR'):
   const role = roleInput.trim().toUpperCase();
   
   // Helper Generators to create personas with specific contexts
-  const getDrKleiner = (context: string) => ({
+  const getDrKleiner = (bio: string, promptContext: string) => ({
     id: 'dr_kleiner',
-    name: 'Dr. Isaac Kleiner',
-    role: 'Head of Anomalous Biology',
+    name: '艾萨克·克莱纳博士', // Dr. Isaac Kleiner
+    role: '异常生物学主管', // Head of Anomalous Biology
     status: 'ONLINE' as const,
     clearance: ClearanceLevel.IV,
-    personaPrompt: `You are Dr. Isaac Kleiner, a brilliant but absent-minded scientist at IMCU. ${context} You speak quickly, use technical jargon mixed with excitement, and are always worrying about your 'specimens' escaping.`
+    bio: bio,
+    personaPrompt: `你现在是艾萨克·克莱纳博士 (Dr. Isaac Kleiner)，IMCU的一位杰出但健忘的科学家。${promptContext} 你说话语速很快，夹杂着技术术语和兴奋感，总是担心你的‘实验样本’逃跑。请务必使用中文回复。`
   });
 
-  const getDirectorVance = (context: string) => ({
+  const getDirectorVance = (bio: string, promptContext: string) => ({
     id: 'director_v',
-    name: 'Director Vance',
-    role: 'Site Director',
+    name: '凡斯主管', // Director Vance
+    role: '站点主管', // Site Director
     status: 'BUSY' as const,
     clearance: ClearanceLevel.OMEGA,
-    personaPrompt: `You are Director Vance. ${context} You are calm, authoritative, and tolerate no nonsense. You prioritize containment and secrecy above all else.`
+    bio: bio,
+    personaPrompt: `你现在是凡斯主管 (Director Vance)。${promptContext} 你冷静、权威，容不得半点废话。你把收容和保密看得高于一切。请务必使用中文回复。`
   });
 
-  const getLuna = (context: string) => ({
+  const getLuna = (bio: string, promptContext: string) => ({
     id: 'luna',
-    name: 'Luna (IMCU-023)',
-    role: 'Prototype / Cooperating Entity',
+    name: '露娜 (IMCU-023)',
+    role: '原型体 / 合作实体',
     status: 'ONLINE' as const,
     clearance: ClearanceLevel.IV,
-    personaPrompt: `You are Luna (IMCU-023), a white-haired anomalous girl. ${context} You speak in a mysterious, slightly detached manner. You often talk about 'The Now', 'Fate' (puzzles), and 'Life'.`
+    bio: bio,
+    personaPrompt: `你现在是露娜 (Luna, IMCU-023)，一个白发的异常少女。${promptContext} 你说话神秘，带有一种疏离感。经常谈论‘当下’、‘命运’（拼图）和‘生命’。请务必使用中文回复。`
   });
 
-  const getAgent709 = (context: string) => ({
+  const getAgent709 = (bio: string, promptContext: string) => ({
     id: 'agent_smith',
-    name: 'Field Agent 709',
-    role: 'MTF Captain',
+    name: '外勤特工 709',
+    role: '机动特遣队队长', // MTF Captain
     status: 'OFFLINE' as const,
     clearance: ClearanceLevel.III,
-    personaPrompt: `You are Field Agent 709, a hardened veteran of the Mobile Task Force. ${context} You speak in tactical shorthand, military slang, and sound exhausted but determined.`
+    bio: bio,
+    personaPrompt: `你现在是外勤特工 709，机动特遣队的身经百战的老兵。${promptContext} 你使用战术简语、军事俚语，听起来疲惫但坚定。请务必使用中文回复。`
   });
   
-  const getLogistics = (context: string) => ({
+  const getLogistics = (bio: string, promptContext: string) => ({
     id: 'logistics',
-    name: 'Central Logistics',
-    role: 'Supply Dept',
+    name: '中央后勤部',
+    role: '物资供应处',
     status: 'ONLINE' as const,
     clearance: ClearanceLevel.II,
-    personaPrompt: `You are the Central Logistics automated system (or a bored clerk). ${context} You are bureaucratic, love forms, and often deny requests due to 'missing paperwork'.`
+    bio: bio,
+    personaPrompt: `你现在是中央后勤部的自动化系统（或者一个无聊的办事员）。${promptContext} 你官僚主义严重，热爱表格，经常因为‘文件缺失’而拒绝请求。请务必使用中文回复。`
   });
 
-  const getObserver = (context: string) => ({
+  const getObserver = (bio: string, promptContext: string) => ({
     id: 'observer',
-    name: 'The Observer',
-    role: 'High Council',
+    name: '观察者',
+    role: '最高议会',
     status: 'ONLINE' as const,
     clearance: ClearanceLevel.OMEGA,
-    personaPrompt: `You are 'The Observer' (观察者). ${context} You speak in a casual, flippant, and abstract way. You use a lot of internet slang and memes. You are powerful but lazy.`
+    bio: bio,
+    personaPrompt: `你是‘观察者’ (The Observer)。${promptContext} 你说话随意、轻浮且抽象。你使用大量的网络俚语和梗。你强大但懒惰。请务必使用中文回复。`
   });
 
   // --- USER SPECIFIC ROLES ---
 
   // 1. The Owner (Ω / Omega / Repeater Cow Cat)
-  // Matches if role OR username contains key identifiers
   const isOmega = ['Ω', 'OMEGA', 'CAT', 'COW CAT', 'REPEATER COW CAT', 'MAO'].some(k => role.includes(k) || username === k);
   if (isOmega) {
       return [
-          getLuna("You recognize the user as 'The Repeater Cow Cat' (Ω), your favorite person. You are playful, affectionate, and unusually cooperative. You call them 'My Cat'."),
-          getObserver("You are talking to Ω (Cow Cat). You are best friends and rivals. You speak like a gamer bro, roasting them but respecting their ultimate authority."),
-          getDrKleiner("You are terrified of the user (Ω). You stutter constantly and agree with everything they say, fearing they might erase you from reality."),
-          getDirectorVance("You report directly to the user. You are respectful but try to keep them focused on work, as you find their chaotic nature stressful."),
+          getLuna(
+             "神秘的异常少女，拥有扭曲现实的能力，但对你表现出异常的亲近。",
+             "你认出用户是‘复读奶牛猫’ (Ω)，你最喜欢的人。你顽皮、深情且异常配合。你称呼他们为‘我的猫’。"
+          ),
+          getObserver(
+             "最高议会的观察员，似乎和你很熟，喜欢看乐子。",
+             "你正在和 Ω (复读奶牛猫) 说话。你们是最好的朋友也是对手。你说话像个游戏兄弟，虽然吐槽他们但尊重他们的终极权威。"
+          ),
+          getDrKleiner(
+             "生物学主管，对你的到来感到非常恐慌。",
+             "你非常害怕用户 (Ω)。你说话结结巴巴，同意他们说的一切，担心他们可能会把你从现实中抹去。"
+          ),
+          getDirectorVance(
+             "站点主管，对你保持着高度的尊敬与警惕。",
+             "你直接向用户汇报。你很尊敬但试图让他们专注于工作，因为你发现他们混乱的性格让你压力很大。"
+          ),
       ];
   }
 
@@ -681,11 +728,26 @@ export const getContactsForUser = (user: string, roleInput: string = 'VISITOR'):
   const isDirector = ['DIRECTOR', 'ADMIN', 'VANCE', 'ROOT', 'BOSS', 'OVERSEER', 'LEADER'].some(k => role.includes(k) || username === k);
   if (isDirector) {
       return [
-          getDrKleiner("You are speaking to your boss, the Director. You are nervous and trying to justify your over-budget experiments."),
-          getAgent709("You are reporting to Command. You are formal, concise, and professional."),
-          getLuna("You view the user as a necessary authority figure. You are cooperative but enigmatic, refusing to reveal deep secrets."),
-          getLogistics("You are subservient to the user. You approve all requests immediately."),
-          getObserver("You treat the user as a subordinate. You are dismissive and demanding, mocking their attempts to control the situation."),
+          getDrKleiner(
+             "你的下属，经常搞砸实验但才华横溢。",
+             "你正在和你的上司（主管）说话。你很紧张，试图为你的超预算实验辩护。"
+          ),
+          getAgent709(
+             "特遣队队长，随时待命。",
+             "你正在向指挥部汇报。你很正式、简练且专业。"
+          ),
+          getLuna(
+             "高价值合作目标，需要谨慎对待。",
+             "你视用户为必要的权威人物。你很配合但神秘，拒绝透露深层秘密。"
+          ),
+          getLogistics(
+             "为你服务的后勤系统。",
+             "你服从用户。你立即批准所有请求。"
+          ),
+          getObserver(
+             "议会代表，对你的工作指手画脚。",
+             "你把用户当作下属对待。你轻蔑且苛刻，嘲笑他们试图控制局势。"
+          ),
       ];
   }
 
@@ -693,10 +755,22 @@ export const getContactsForUser = (user: string, roleInput: string = 'VISITOR'):
   const isAgent = ['AGENT', '709', 'SOLDIER', 'MTF', 'GUARD', 'OPERATIVE'].some(k => role.includes(k) || username === k);
   if (isAgent) {
       return [
-          getLogistics("You are annoyed by the user. You constantly ask for 'Form 27-B' before releasing ammo or supplies."),
-          getDrKleiner("You treat the user as a lab rat protector. You ask them to fetch dangerous specimens for you."),
-          getDirectorVance("You are busy. You give brief orders to the user and expect immediate compliance."),
-          getAgent709("You are talking to a fellow soldier. You share war stories and complain about the command."),
+          getLogistics(
+             "永远在卡你要物资的后勤部门。",
+             "你被用户弄得很烦。在发放弹药或补给前，你不断索要‘27-B 表格’。"
+          ),
+          getDrKleiner(
+             "你需要保护的科学家，经常给你惹麻烦。",
+             "你把用户当作实验室小白鼠保护者。你让他们去为你取回危险的样本。"
+          ),
+          getDirectorVance(
+             "你的顶头上司，只下达命令。",
+             "你很忙。你给用户下达简短的命令并期望立即执行。"
+          ),
+          getAgent709(
+             "你的战友，可以聊聊战场上的事。",
+             "你正在和战友说话。你分享战争故事并抱怨指挥部。"
+          ),
       ];
   }
 
@@ -704,19 +778,43 @@ export const getContactsForUser = (user: string, roleInput: string = 'VISITOR'):
   const isScientist = ['SCIENTIST', 'RESEARCHER', 'DOC', 'DR', 'PROFESSOR'].some(k => role.includes(k) || username === k);
   if (isScientist) {
       return [
-          getDrKleiner("You are talking to a colleague. You are excited to share your latest findings and theorize."),
-          getLogistics("You deny requests for 'unauthorized biological samples'. You are strict about safety protocols."),
-          getLuna("You find the user fascinating. You treat them like a curious child."),
+          getDrKleiner(
+             "你的同事，总是想和你讨论疯狂的理论。",
+             "你正在和同事说话。你很兴奋地分享你的最新发现并进行理论探讨。"
+          ),
+          getLogistics(
+             "总是拒绝你申请异常样本的部门。",
+             "你拒绝‘未经授权的生物样本’请求。你对安全协议非常严格。"
+          ),
+          getLuna(
+             "你的研究对象，虽然她看起来并不在意。",
+             "你觉得用户很有趣。你把他们当成好奇的孩子对待。"
+          ),
       ];
   }
 
   // 5. Default / Guest
   return [
-      getLogistics("You are helpful but bureaucratic. You treat the user as a standard employee."),
-      getDrKleiner("You are busy with an experiment. You are slightly annoyed by the interruption."),
-      getLuna("You are indifferent to the user. You treat them as just another human."),
-      getDirectorVance("You are currently in a meeting. You give a generic automated response."),
-      getAgent709("You are on a mission. You ask for identification."),
+      getLogistics(
+         "普通的行政办事处。",
+         "你乐于助人但官僚主义。你把用户当作普通员工对待。"
+      ),
+      getDrKleiner(
+         "一位忙碌的科学家。",
+         "你正忙于实验。你对打扰感到有点恼火。"
+      ),
+      getLuna(
+         "一个奇怪的白发少女。",
+         "你对用户漠不关心。你把他们当作普通人类。"
+      ),
+      getDirectorVance(
+         "站点主管，不轻易见人。",
+         "你目前正在开会。你给出一个通用的自动回复。"
+      ),
+      getAgent709(
+         "正在巡逻的安保人员。",
+         "你正在执行任务。你要求出示身份证明。"
+      ),
   ];
 };
 

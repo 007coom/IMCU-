@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
-import { FileSystemNode, DirectoryNode, FileNode, TerminalLine, Contact, ClearanceLevel } from '../types';
-import { FILE_SYSTEM, getContactsForUser } from '../data';
+import { FileSystemNode, DirectoryNode, FileNode, TerminalLine, Contact, ClearanceLevel, AppType } from '../types';
+import { FILE_SYSTEM, getContactsForUser, LATIN_MOTTOS } from '../data';
 import { soundManager } from '../utils/sound';
 import { TypingText } from './TypingText';
 import { SystemMonitor } from './SystemMonitor';
@@ -16,8 +17,6 @@ interface TerminalProps {
   onLogout: () => void;
 }
 
-export type AppType = 'NONE' | 'SYS' | 'MAP' | 'SCAN' | 'AI' | 'CAM';
-
 const COMMANDS = [
   'help', 'ls', 'cd', 'cat', 'clear', 'sys', 'map', 'scan', 
   'ai', 'cam', 'pwd', 'whoami', 'import', 'touch', 'comms', 
@@ -25,12 +24,21 @@ const COMMANDS = [
 ];
 
 export const Terminal: React.FC<TerminalProps> = ({ user, role, onLogout }) => {
-  const [lines, setLines] = useState<TerminalLine[]>([
-    { type: 'system', content: 'IMCU SECURE TERMINAL v4.5' },
-    { type: 'system', content: `欢迎, ${user} [${role}]` },
-    { type: 'system', content: '输入 "help" 查看可用命令 (Type "help")' }, 
-    { type: 'success', content: '连接已建立 (Connection Established).' }
-  ]);
+  const [lines, setLines] = useState<TerminalLine[]>(() => {
+    const motto = LATIN_MOTTOS[Math.floor(Math.random() * LATIN_MOTTOS.length)];
+    return [
+        { type: 'system', content: 'IMCU SECURE TERMINAL v4.5' },
+        { type: 'system', content: 'INITIALIZING KERNEL... OK' },
+        { type: 'system', content: 'LOADING SECURITY PROTOCOLS... OK' },
+        { type: 'output', content: '----------------------------------------' },
+        { type: 'output', content: `:: ${motto.text} ::` },
+        { type: 'output', content: `   (${motto.trans})` },
+        { type: 'output', content: '----------------------------------------' },
+        { type: 'system', content: `欢迎, ${user} [${role}]` },
+        { type: 'system', content: '输入 "help" 查看可用命令 (Type "help")' }, 
+        { type: 'success', content: '连接已建立 (Connection Established).' }
+    ];
+  });
   const [input, setInput] = useState('');
   const [currentPath, setCurrentPath] = useState<string[]>(['root']);
   const [history, setHistory] = useState<string[]>([]);

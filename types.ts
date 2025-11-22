@@ -38,5 +38,8 @@ export interface Contact {
   role: string;
   status: 'ONLINE' | 'OFFLINE' | 'BUSY' | 'KIA';
   clearance: ClearanceLevel;
-  personaPrompt: string; // For AI simulation
+  bio: string;           // Description visible to user
+  personaPrompt: string; // Instruction for AI
 }
+
+export type AppType = 'NONE' | 'SYS' | 'MAP' | 'SCAN' | 'AI' | 'CAM';

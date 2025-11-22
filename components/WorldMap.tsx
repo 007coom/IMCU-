@@ -10,7 +10,7 @@ export const WorldMap: React.FC<WorldMapProps> = ({ onClose }) => {
   const [blink, setBlink] = useState(true);
 
   useEffect(() => {
-    const interval = setInterval(() => setBlink(b => !b), 500);
+    const interval = window.setInterval(() => setBlink(b => !b), 500);
     const keyHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' || e.key.toLowerCase() === 'q') {
         onClose();

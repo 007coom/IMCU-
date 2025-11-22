@@ -12,7 +12,7 @@ export const SystemMonitor: React.FC<SystemMonitorProps> = ({ onClose }) => {
   const [logs, setLogs] = useState<string[]>([]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    const timer = window.setInterval(() => {
       setCpu(prev => [...prev.slice(1), Math.floor(Math.random() * 100)]);
       setMem(prev => Math.min(100, Math.max(10, prev + (Math.random() - 0.5) * 10)));
       
