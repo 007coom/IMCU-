@@ -187,6 +187,25 @@ export const AIXi001: React.FC<AIXi001Props> = ({
     return () => clearInterval(frameInterval);
   }, [apiKey, isLiveConnected, provider]);
 
+  // --- SPARK CONFIG AUTO-CORRECTION ---
+  useEffect(() => {
+    // If we are using Spark Lite (v1.1) but domain isn't set to 'lite' (e.g. legacy 'general' from localStorage), fix it.
+    if (sparkVersion === 'v1.1') {
+        let changed = false;
+        if (sparkDomain !== 'lite') {
+            setSparkDomain('lite');
+            changed = true;
+        }
+        if (sparkServiceUrl !== SPARK_ENDPOINTS['v1.1'].url) {
+            setSparkServiceUrl(SPARK_ENDPOINTS['v1.1'].url);
+            changed = true;
+        }
+        if (changed) {
+            console.log("Auto-corrected Spark Lite configuration to 'lite' domain.");
+        }
+    }
+  }, [sparkVersion, sparkDomain, sparkServiceUrl]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [chatHistory, isChatThinking]);
@@ -301,7 +320,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       console.error(error);
       let errorMsg = `ERR: NETWORK_FAILURE // ${error.message || error}`;
       if (errorMsg.includes('11200')) {
-         errorMsg += `\n[AUTH ERROR] Spark Lite authentication failed. Check domain settings in [CONFIG]. Ensure domain is set to 'lite'.`;
+         errorMsg += `\n[AUTH ERROR] Spark Lite authentication failed. Domain must be 'lite'. Check Config.`;
       }
       setChatHistory(prev => [...prev, { role: 'model', text: errorMsg, timestamp: new Date().toLocaleTimeString() }]);
       soundManager.playLoginFail();
@@ -681,7 +700,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
               
               {/* Provider Indicator */}
               <span className={`font-bold ${provider === 'SPARK' ? 'text-blue-400' : 'text-green-500'}`}>
-                  LINK: {provider === 'SPARK' && sparkVersion === 'v1.1' ? 'iFLYTEK SPARK LITE' : provider}
+                  LINK: {provider === 'SPARK' && sparkVersion === 'v1.1' ? 'iFLYTEK SPARK LITE (DEFAULT)' : provider}
                   {provider === 'SPARK' && sparkVersion !== 'v1.1' && <span className="text-[10px] opacity-70">[{sparkVersion}]</span>}
               </span>
 
