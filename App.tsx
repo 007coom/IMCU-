@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CRTLayout } from './components/CRTLayout';
 import { Terminal } from './components/Terminal';
@@ -88,7 +89,7 @@ const App: React.FC = () => {
         setLoginError('');
       } else {
         soundManager.playLoginFail();
-        setLoginError('错误：身份标识无效 (INVALID IDENTITY)');
+        setLoginError('IDENTITY_REQUIRED');
       }
     } else {
       if (password.toLowerCase() === 'imcu' || password === '1234') { 
@@ -96,7 +97,7 @@ const App: React.FC = () => {
         setViewState('TERMINAL');
       } else {
         soundManager.playLoginFail();
-        setLoginError('错误：访问代码被拒绝 (ACCESS DENIED)');
+        setLoginError('INVALID_ACCESS_CODE');
         setPassword('');
       }
     }
@@ -183,128 +184,171 @@ const App: React.FC = () => {
   if (viewState === 'LOGIN') {
     return (
       <CRTLayout isOn={true}>
-        <div className="flex flex-col items-center justify-center h-full w-full p-4 overflow-y-auto custom-scrollbar">
-          <div className="border-2 border-amber-600 bg-black max-w-2xl w-full text-center relative shadow-[0_0_30px_rgba(217,119,6,0.15)] p-6 md:p-8 my-auto">
-             <h1 className="text-4xl md:text-5xl mb-6 tracking-widest text-glow font-bold text-amber-500">IMCU 终端</h1>
+        <div className="flex flex-col items-center justify-center h-full w-full p-4 overflow-hidden relative">
+          
+          {/* Decorative Background Elements */}
+          <div className="absolute top-10 left-10 text-amber-900/30 text-xs font-mono hidden md:block">
+             SECURE_CONNECTION<br/>
+             ENCRYPTION: AES-4096-GCM<br/>
+             NODE: 192.168.0.1
+          </div>
+          <div className="absolute bottom-10 right-10 text-amber-900/30 text-xs font-mono hidden md:block text-right">
+             IMCU_TERMINAL_OS<br/>
+             COPYRIGHT 2077<br/>
+             ALL RIGHTS RESERVED
+          </div>
+
+          {/* Main Login Container - Cassette Futurism Style */}
+          <div className="relative max-w-3xl w-full border border-amber-800 bg-black/90 backdrop-blur-sm shadow-[0_0_50px_rgba(217,119,6,0.1)] flex flex-col md:flex-row overflow-hidden">
              
-             <div className="text-left space-y-2 mb-8 border-l-4 border-amber-800 pl-4 bg-amber-900/10 py-2">
-               <div className="flex justify-between items-center">
-                 <p className="text-amber-700 text-sm font-bold">安全协议 (SECURITY PROTOCOL)</p>
-                 <p className="text-amber-900 text-xs">v.9.0.1</p>
-               </div>
-               <p className="text-red-500 animate-pulse tracking-wider">RESTRICTED AREA / 极密禁区</p>
+             {/* Decorative Header Bar */}
+             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-900 via-amber-500 to-amber-900 opacity-50"></div>
+             <div className="absolute bottom-0 left-0 w-full h-1 bg-amber-900/30"></div>
+
+             {/* Left Side: Branding & Info */}
+             <div className="hidden md:flex w-1/3 border-r border-amber-800 flex-col p-6 justify-between bg-amber-900/10">
+                 <div>
+                    <h1 className="text-4xl font-bold text-amber-500 mb-2 tracking-tighter">IMCU<br/>TERMINAL<br/>Ω</h1>
+                    <div className="w-12 h-1 bg-amber-500 mb-4"></div>
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                       AUTHORIZED PERSONNEL ONLY.<br/>
+                       VIOLATION OF PROTOCOL 709<br/>
+                       WILL RESULT IN IMMEDIATE<br/>
+                       TERMINATION.
+                    </p>
+                 </div>
+                 <div className="space-y-2 text-[10px] text-amber-800 font-mono">
+                    <div className="flex justify-between border-b border-amber-900/30 pb-1"><span>SYS_STATUS</span><span className="text-amber-600">ONLINE</span></div>
+                    <div className="flex justify-between border-b border-amber-900/30 pb-1"><span>NET_LINK</span><span className="text-amber-600">SECURE</span></div>
+                    <div className="flex justify-between pb-1"><span>AUTH_SRV</span><span className="text-amber-600 animate-pulse">WAITING</span></div>
+                 </div>
              </div>
 
-             <form onSubmit={handleLogin} className="space-y-6">
-               <div>
-                 <label className="block text-amber-700 text-left text-xs md:text-sm mb-2 uppercase tracking-wider">
-                    {loginStep === 'IDENTITY' ? '> 身份标识 (IDENTITY)' : '> 访问代码 (ACCESS CODE)'}
-                 </label>
-                 <div className="relative group">
-                    <input 
-                      type={loginStep === 'PASSWORD' ? "password" : "text"}
-                      className="w-full bg-black border-2 border-amber-800 text-amber-300 text-xl md:text-2xl p-3 focus:outline-none focus:border-amber-500 font-mono text-center uppercase transition-colors shadow-[inset_0_0_10px_rgba(0,0,0,0.8)] placeholder-amber-900/50"
-                      value={loginStep === 'IDENTITY' ? identity : password}
-                      onChange={(e) => {
-                        if(loginStep === 'IDENTITY') setIdentity(e.target.value);
-                        else setPassword(e.target.value);
-                        soundManager.playKeystroke();
-                      }}
-                      autoFocus
-                      placeholder={loginStep === 'IDENTITY' ? "ENTER NAME..." : "XXXX"}
-                    />
-                    <div className="absolute top-0 right-0 bottom-0 w-2 bg-amber-900/20 group-focus-within:bg-amber-500/20"></div>
-                 </div>
-               </div>
+             {/* Right Side: Form */}
+             <div className="flex-1 p-6 md:p-10 flex flex-col relative">
+                {/* Mobile Branding */}
+                <div className="md:hidden mb-6 text-center">
+                   <h1 className="text-3xl font-bold text-amber-500 tracking-widest">IMCU ACCESS</h1>
+                   <div className="h-px w-full bg-amber-800 mt-2"></div>
+                </div>
 
-               {/* Role Selection Step - Redesigned */}
-               {loginStep === 'IDENTITY' && (
-                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-4 border-t border-amber-900/30">
-                   <label className="block text-amber-700 text-left text-xs md:text-sm mb-3 uppercase tracking-wider">
-                      > 职位选择 (SELECT POSITION)
-                   </label>
+                <div className="mb-8 flex justify-between items-end border-b border-amber-900/50 pb-2">
+                   <div>
+                      <div className="text-amber-700 text-xs uppercase tracking-widest mb-1">AUTHENTICATION MODULE</div>
+                      <div className="text-amber-500 text-sm font-bold">{loginStep === 'IDENTITY' ? 'STEP 1: IDENTIFICATION' : 'STEP 2: VERIFICATION'}</div>
+                   </div>
+                   <div className="text-xs text-amber-900 font-mono">v4.2</div>
+                </div>
+
+                <form onSubmit={handleLogin} className="flex-1 flex flex-col justify-between space-y-6">
                    
-                   {!customRoleMode ? (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                         {ROLE_OPTIONS.map((opt) => (
-                           <button
-                             key={opt.id}
-                             type="button"
-                             onClick={() => {
-                               if (opt.id === 'CUSTOM') {
-                                   setCustomRoleMode(true);
-                                   setRole('');
-                               } else {
-                                   setRole(opt.id);
-                               }
-                               soundManager.playKeystroke();
-                             }}
-                             className={`
-                               relative p-3 border transition-all duration-200 flex flex-col items-center justify-center group
-                               ${role === opt.id 
-                                 ? 'bg-amber-500 text-black border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]' 
-                                 : 'bg-black/40 border-amber-800 text-amber-600 hover:border-amber-500 hover:text-amber-400 hover:bg-amber-900/20'
-                               }
-                             `}
-                           >
-                              {/* Tech Corners */}
-                              <div className={`absolute top-0 left-0 w-1 h-1 ${role === opt.id ? 'bg-black' : 'bg-amber-500'} transition-colors`}></div>
-                              <div className={`absolute bottom-0 right-0 w-1 h-1 ${role === opt.id ? 'bg-black' : 'bg-amber-500'} transition-colors`}></div>
-                              
-                              <span className="text-lg md:text-xl font-bold leading-none mb-1">{opt.label}</span>
-                              <span className={`text-[10px] uppercase tracking-wider ${role === opt.id ? 'text-black/70' : 'text-amber-800 group-hover:text-amber-600'}`}>{opt.sub}</span>
-                           </button>
-                         ))}
+                   {/* Input Section */}
+                   <div className="space-y-2">
+                      <label className="block text-amber-600 text-xs uppercase tracking-wider">
+                        {loginStep === 'IDENTITY' ? '> USER_IDENTITY' : '> ACCESS_CODE'}
+                      </label>
+                      <div className="relative group">
+                         <input 
+                            type={loginStep === 'PASSWORD' ? "password" : "text"}
+                            className="w-full bg-transparent border-b-2 border-amber-800 text-amber-300 text-2xl py-2 focus:outline-none focus:border-amber-500 font-mono uppercase placeholder-amber-900/30 transition-colors"
+                            value={loginStep === 'IDENTITY' ? identity : password}
+                            onChange={(e) => {
+                              if(loginStep === 'IDENTITY') setIdentity(e.target.value);
+                              else setPassword(e.target.value);
+                              soundManager.playKeystroke();
+                            }}
+                            autoFocus
+                            placeholder={loginStep === 'IDENTITY' ? "ENTER NAME" : "••••"}
+                         />
+                         <div className="absolute right-0 bottom-2 text-amber-500 animate-pulse text-xl font-bold">_</div>
                       </div>
-                   ) : (
-                      <div className="relative animate-in zoom-in-95 duration-300">
-                         <div className="flex gap-2">
-                            <div className="relative flex-1">
-                                <input 
+                   </div>
+
+                   {/* Role Selection (Strict Cassette Future Style) */}
+                   {loginStep === 'IDENTITY' && (
+                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <label className="block text-amber-600 text-xs uppercase tracking-wider mb-3 flex justify-between items-center">
+                           <span>> SECURITY_CLEARANCE</span>
+                           <span className="text-amber-900 bg-amber-900/20 px-1">REQUIRED</span>
+                        </label>
+
+                        {!customRoleMode ? (
+                           <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                              {ROLE_OPTIONS.map((opt) => (
+                                 <button
+                                    key={opt.id}
+                                    type="button"
+                                    onClick={() => {
+                                        if (opt.id === 'CUSTOM') {
+                                            setCustomRoleMode(true);
+                                            setRole('');
+                                        } else {
+                                            setRole(opt.id);
+                                        }
+                                        soundManager.playKeystroke();
+                                    }}
+                                    className={`
+                                       relative p-2 text-left border flex items-center gap-3 transition-all group
+                                       ${role === opt.id 
+                                          ? 'border-amber-500 bg-amber-500/10 text-amber-300' 
+                                          : 'border-amber-900/30 bg-transparent text-amber-700 hover:border-amber-700 hover:text-amber-500'
+                                       }
+                                    `}
+                                 >
+                                    {/* Retro Checkbox Visual */}
+                                    <div className={`w-3 h-3 border ${role === opt.id ? 'border-amber-500' : 'border-amber-800'} flex items-center justify-center shrink-0`}>
+                                       {role === opt.id && <div className="w-1.5 h-1.5 bg-amber-500"></div>}
+                                    </div>
+                                    
+                                    <div className="flex flex-col min-w-0">
+                                       <span className="text-xs font-bold tracking-wider truncate">{opt.sub}</span>
+                                       <span className="text-[9px] opacity-60 truncate uppercase">{opt.label}</span>
+                                    </div>
+                                 </button>
+                              ))}
+                           </div>
+                        ) : (
+                           <div className="border border-amber-600/50 p-3 bg-amber-900/5 relative">
+                               <div className="text-[10px] text-amber-500 mb-2 flex items-center gap-2">
+                                  <span className="animate-pulse">●</span> MANUAL_OVERRIDE_ENABLED
+                               </div>
+                               <input 
                                     type="text"
-                                    className="w-full bg-black border-2 border-amber-500 text-amber-300 text-lg p-2 focus:outline-none shadow-[0_0_15px_rgba(245,158,11,0.1)] font-mono text-center uppercase placeholder-amber-900"
+                                    className="w-full bg-black border border-amber-500 text-amber-300 text-sm p-2 focus:outline-none font-mono uppercase placeholder-amber-900"
                                     value={role}
                                     onChange={(e) => { setRole(e.target.value); soundManager.playKeystroke(); }}
-                                    placeholder="ENTER CUSTOM ROLE..."
+                                    placeholder="ENTER DESIGNATION..."
                                     autoFocus
                                 />
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-amber-500 animate-pulse">_</div>
-                            </div>
-                            <button 
-                              type="button"
-                              onClick={() => { setCustomRoleMode(false); setRole('VISITOR'); soundManager.playKeystroke(); }}
-                              className="px-4 border border-amber-700 text-amber-700 hover:bg-amber-900/20 hover:text-amber-500 hover:border-amber-500 transition-colors"
-                            >
-                                BACK
-                            </button>
-                         </div>
-                         <div className="text-xs text-amber-800 mt-2 text-center">
-                             * WARNING: Non-standard roles may trigger anomalous AI responses.
-                         </div>
+                                <div className="flex justify-end mt-2">
+                                   <button 
+                                      type="button" 
+                                      onClick={() => { setCustomRoleMode(false); setRole('VISITOR'); soundManager.playKeystroke(); }}
+                                      className="text-[10px] text-amber-700 hover:text-amber-500 hover:underline uppercase"
+                                   >
+                                      [ CANCEL OVERRIDE ]
+                                   </button>
+                                </div>
+                           </div>
+                        )}
+                     </div>
+                   )}
+
+                   {loginError && (
+                      <div className="text-red-500 text-xs font-bold animate-pulse bg-red-900/10 p-2 border-l-2 border-red-500 flex items-center gap-2">
+                         <span>⚠</span> ERROR: {loginError}
                       </div>
                    )}
-                 </div>
-               )}
 
-               {loginError && (
-                  <div className="border border-red-900/50 bg-red-900/10 p-3 text-red-500 text-sm font-bold animate-pulse flex items-center justify-center gap-2">
-                     <span className="text-xl">!</span> {loginError}
-                  </div>
-               )}
+                   <button 
+                      type="submit"
+                      className="w-full bg-amber-600 text-black font-bold py-3 hover:bg-amber-500 transition-colors uppercase tracking-[0.2em] flex items-center justify-center gap-2 group mt-4"
+                   >
+                      <span>{loginStep === 'IDENTITY' ? 'PROCEED' : 'AUTHENTICATE'}</span>
+                      <span className="group-hover:translate-x-1 transition-transform">→</span>
+                   </button>
 
-               <button 
-                  type="submit"
-                  className="group w-full bg-amber-900/20 border-2 border-amber-600 hover:bg-amber-500 hover:text-black hover:border-amber-500 text-amber-500 py-3 md:py-4 transition-all duration-300 uppercase tracking-[0.2em] font-bold text-lg mt-6 relative overflow-hidden"
-               >
-                  <span className="relative z-10">{loginStep === 'IDENTITY' ? '下一步 // NEXT' : '授权登录 // AUTHENTICATE'}</span>
-                  {/* Hover Sweep Effect */}
-                  <div className="absolute inset-0 bg-amber-400/20 transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-               </button>
-             </form>
-             
-             <div className="mt-8 pt-4 border-t border-amber-900/30 flex justify-between text-[10px] text-amber-900 uppercase font-mono">
-                <span>SECURE TERMINAL ACCESS</span>
-                <span>IMCU-NET // ENCRYPTED</span>
+                </form>
              </div>
           </div>
         </div>
