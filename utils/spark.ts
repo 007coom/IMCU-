@@ -97,9 +97,13 @@ export const sendSparkRequest = async (
         }
       }, 30000);
 
-      // Transform messages: Spark expects system prompt as the first message with role 'system'
+      // Transform messages: 
+      // IMPORTANT: For Spark Lite (v1.1) and strict persona enforcement, 
+      // we send the system prompt as a 'user' message at the very top of the stack.
+      // This forces the model to read it as part of the immediate conversation context
+      // rather than a background system instruction which is often ignored by the safety filters.
       const payloadMessages = [
-          { role: "system", content: systemPrompt }, 
+          { role: "user", content: systemPrompt }, 
           ...messages
       ];
 
