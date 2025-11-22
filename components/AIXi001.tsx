@@ -101,10 +101,11 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   const [chatModel, setChatModel] = useState<'FLASH' | 'PRO'>(initialModel || 'FLASH');
 
   // Spark State - Initialize with saved values or BUILT-IN DEFAULTS
+  // FIX: Default to v1.1 (Lite) as v3.5 causes 11200 Auth errors for Lite accounts
   const [sparkAppId, setSparkAppId] = useState(localStorage.getItem('IMCU_SPARK_APPID') || DEFAULT_SPARK_CONFIG.appId);
   const [sparkApiSecret, setSparkApiSecret] = useState(localStorage.getItem('IMCU_SPARK_SECRET') || DEFAULT_SPARK_CONFIG.apiSecret);
   const [sparkApiKey, setSparkApiKey] = useState(localStorage.getItem('IMCU_SPARK_KEY') || DEFAULT_SPARK_CONFIG.apiKey);
-  const [sparkVersion, setSparkVersion] = useState<SparkVersion>((localStorage.getItem('IMCU_SPARK_VERSION') as SparkVersion) || 'v3.5');
+  const [sparkVersion, setSparkVersion] = useState<SparkVersion>((localStorage.getItem('IMCU_SPARK_VERSION') as SparkVersion) || 'v1.1');
 
   // --- DASHBOARD STATE ---
   const [activeSubsystems, setActiveSubsystems] = useState({ neural: 0, defense: 0 });
@@ -265,7 +266,11 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
     } catch (error: any) {
       console.error(error);
-      setChatHistory(prev => [...prev, { role: 'model', text: `ERR: NETWORK_FAILURE // ${error.message || error}`, timestamp: new Date().toLocaleTimeString() }]);
+      let errorMsg = `ERR: NETWORK_FAILURE // ${error.message || error}`;
+      if (errorMsg.includes('11200')) {
+         errorMsg += `\n[AUTH ERROR] Your Spark AppID does not support version ${sparkVersion}. Please switch to 'Spark Lite (V1.1)' in the CONFIG tab.`;
+      }
+      setChatHistory(prev => [...prev, { role: 'model', text: errorMsg, timestamp: new Date().toLocaleTimeString() }]);
       soundManager.playLoginFail();
     } finally {
       setIsChatThinking(false);
@@ -359,11 +364,15 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
       } catch (err: any) {
           console.error(err);
+          let errorMsg = `ERR: COMMS_FAILURE // ${err.message || err}`;
+          if (errorMsg.includes('11200')) {
+             errorMsg += `\n[AUTH ERROR] Try changing Spark Version to 'v1.1' in CONFIG.`;
+          }
           setCommsHistory(prev => ({
             ...prev,
             [activeContact.id]: [
                 ...(prev[activeContact.id] || []),
-                { role: 'model', text: `ERR: COMMS_FAILURE // ${err.message || err}.`, timestamp: new Date().toLocaleTimeString() }
+                { role: 'model', text: errorMsg, timestamp: new Date().toLocaleTimeString() }
             ]
           }));
           soundManager.playLoginFail();
@@ -440,8 +449,12 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
        setAnalysisResult(text);
        soundManager.playLoginSuccess();
-    } catch (error) {
-       setAnalysisResult(`ERR: PROCESSING_FAILED // ${error}`);
+    } catch (error: any) {
+       let errorMsg = `ERR: PROCESSING_FAILED // ${error.message || error}`;
+       if (errorMsg.includes('11200')) {
+           errorMsg += ` (Auth Failed: Check Version in CONFIG)`;
+       }
+       setAnalysisResult(errorMsg);
        soundManager.playLoginFail();
     } finally {
        setIsAnalyzing(false);
@@ -625,7 +638,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
               
               {/* Provider Indicator */}
               <span className={`font-bold ${provider === 'SPARK' ? 'text-blue-400' : 'text-green-500'}`}>
-                  LINK: {provider}
+                  LINK: {provider} {provider === 'SPARK' && <span className="text-[10px] opacity-70">[{sparkVersion}]</span>}
               </span>
 
               {/* Gemini Model Toggle (Only visible if Gemini) */}
@@ -1109,7 +1122,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                             <option value="v4.0">Spark 4.0 Ultra</option>
                                         </select>
                                         <div className="text-[10px] text-blue-500/50 pt-1">
-                                            If you see Error 11200, try changing this version.
+                                            Error 11200? Try 'Spark Lite' (your key likely doesn't support Max/Pro).
                                         </div>
                                     </div>
 

@@ -131,8 +131,8 @@ export const sendSparkRequest = async (
           if (res.header.code !== 0) {
             socket.close();
             hasError = true;
-            // Pass detailed error for debugging
-            reject(`Spark Error (${res.header.code}): ${res.header.message}`);
+            // Pass detailed error for debugging, including domain
+            reject(`Spark Error (${res.header.code}): ${res.header.message} [Requested Domain: ${endpoint.domain}]`);
             return;
           }
 
