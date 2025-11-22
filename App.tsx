@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CRTLayout } from './components/CRTLayout';
 import { Terminal } from './components/Terminal';
@@ -111,7 +110,7 @@ const App: React.FC = () => {
 
   if (viewState === 'POWER_OFF') {
     return (
-      <div className="h-screen w-screen bg-zinc-950 flex items-center justify-center font-vt323 relative overflow-hidden">
+      <div className="h-[100dvh] w-full bg-zinc-950 flex items-center justify-center font-vt323 relative overflow-hidden touch-none">
          <div className="absolute inset-0 pointer-events-none scanline-overlay opacity-20"></div>
          <button 
             onClick={handlePowerOn}
@@ -184,7 +183,7 @@ const App: React.FC = () => {
                  </label>
                  <input 
                    type={loginStep === 'PASSWORD' ? "password" : "text"}
-                   className="w-full bg-black border-b-2 border-amber-500 text-amber-300 text-2xl p-2 focus:outline-none focus:border-amber-300 font-mono text-center uppercase"
+                   className="w-full bg-black border-b-2 border-amber-500 text-amber-300 text-base md:text-2xl p-2 focus:outline-none focus:border-amber-300 font-mono text-center uppercase"
                    value={loginStep === 'IDENTITY' ? identity : password}
                    onChange={(e) => {
                      if(loginStep === 'IDENTITY') setIdentity(e.target.value);

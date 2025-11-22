@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { soundManager } from '../utils/sound';
 import { AppType } from './Terminal';
@@ -632,7 +631,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                      type="text" 
                      value={chatInput}
                      onChange={(e) => setChatInput(e.target.value)}
-                     className="flex-1 bg-amber-900/10 border border-amber-700 p-2 text-amber-300 focus:outline-none focus:border-amber-400 font-mono placeholder-amber-900"
+                     className="flex-1 bg-amber-900/10 border border-amber-700 p-2 text-amber-300 focus:outline-none focus:border-amber-400 font-mono placeholder-amber-900 text-base md:text-sm"
                      placeholder="输入指令 / ENTER COMMAND..."
                      autoFocus
                   />
@@ -670,13 +669,13 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                   <div className="flex-1 flex flex-col border border-amber-600/50 bg-black relative h-full overflow-hidden p-4">
                       <div className="text-amber-500 mb-2 font-bold">新建档案 (NEW FILE ENTRY)</div>
                       <input 
-                          className="bg-zinc-900 border border-amber-800 text-amber-300 p-2 mb-2 w-full font-mono" 
+                          className="bg-zinc-900 border border-amber-800 text-amber-300 p-2 mb-2 w-full font-mono text-base md:text-sm" 
                           placeholder="FILENAME (e.g., report.txt)"
                           value={newFileName}
                           onChange={(e) => setNewFileName(e.target.value)}
                       />
                       <textarea 
-                          className="bg-zinc-900 border border-amber-800 text-amber-300 p-2 flex-1 font-mono resize-none" 
+                          className="bg-zinc-900 border border-amber-800 text-amber-300 p-2 flex-1 font-mono resize-none text-base md:text-sm" 
                           placeholder="CONTENT..."
                           value={newFileContent}
                           onChange={(e) => setNewFileContent(e.target.value)}
@@ -781,7 +780,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                           <div>
                               <label className="block text-xs text-amber-700 mb-1">姓名 (NAME)</label>
                               <input 
-                                  className="w-full bg-zinc-900 border border-amber-800 text-amber-300 p-2 font-mono focus:border-amber-500 focus:outline-none" 
+                                  className="w-full bg-zinc-900 border border-amber-800 text-amber-300 p-2 font-mono focus:border-amber-500 focus:outline-none text-base md:text-sm" 
                                   placeholder="e.g., Agent K"
                                   value={newContactName}
                                   onChange={(e) => setNewContactName(e.target.value)}
@@ -791,7 +790,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                           <div>
                               <label className="block text-xs text-amber-700 mb-1">职位/代号 (ROLE)</label>
                               <input 
-                                  className="w-full bg-zinc-900 border border-amber-800 text-amber-300 p-2 font-mono focus:border-amber-500 focus:outline-none" 
+                                  className="w-full bg-zinc-900 border border-amber-800 text-amber-300 p-2 font-mono focus:border-amber-500 focus:outline-none text-base md:text-sm" 
                                   placeholder="e.g., Field Operative"
                                   value={newContactRole}
                                   onChange={(e) => setNewContactRole(e.target.value)}
@@ -801,7 +800,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                           <div>
                               <label className="block text-xs text-amber-700 mb-1">个人简介/人格设定 (INTRODUCTION / PERSONA)</label>
                               <textarea 
-                                  className="w-full h-32 bg-zinc-900 border border-amber-800 text-amber-300 p-2 font-mono focus:border-amber-500 focus:outline-none resize-none" 
+                                  className="w-full h-32 bg-zinc-900 border border-amber-800 text-amber-300 p-2 font-mono focus:border-amber-500 focus:outline-none resize-none text-base md:text-sm" 
                                   placeholder="Describe how this person speaks and behaves. This serves as the AI instruction."
                                   value={newContactPersona}
                                   onChange={(e) => setNewContactPersona(e.target.value)}
@@ -835,7 +834,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                     [ Delete ]
                                 </button>
                              )}
-                             <button onClick={() => setActiveContact(null)} className="md:hidden border border-amber-600 px-2 text-xs text-amber-500">BACK</button>
+                             <button onClick={() => setActiveContact(null)} className="md:hidden border border-amber-600 px-3 py-1 text-xs text-amber-500 active:bg-amber-500 active:text-black">BACK</button>
                          </div>
                       </div>
 
@@ -845,7 +844,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                               SUBJECT BRIEF //
                           </div>
                           <button
-                              className="text-[10px] text-amber-500 border border-amber-900/50 px-2 py-0.5 hover:bg-amber-900/20 hover:text-amber-300 transition-colors"
+                              className="text-[10px] text-amber-500 border border-amber-900/50 px-3 py-1 hover:bg-amber-900/20 hover:text-amber-300 transition-colors active:bg-amber-500 active:text-black"
                               onClick={() => setShowPersonaBrief(!showPersonaBrief)}
                           >
                               {showPersonaBrief ? '[- HIDE]' : '[+ SHOW]'}
@@ -874,7 +873,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                       {/* Input */}
                       <form onSubmit={handleCommsSend} className="p-2 border-t border-amber-800 flex gap-2 bg-black">
                           <input 
-                             className="flex-1 bg-zinc-900 border border-amber-800 text-amber-300 p-2 text-sm focus:border-amber-500 focus:outline-none"
+                             className="flex-1 bg-zinc-900 border border-amber-800 text-amber-300 p-2 text-base md:text-sm focus:border-amber-500 focus:outline-none"
                              placeholder="TRANSMIT MESSAGE..."
                              value={commsInput}
                              onChange={(e) => setCommsInput(e.target.value)}
