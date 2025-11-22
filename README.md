@@ -6,7 +6,7 @@
 ## 1. 本地运行 (电脑端)
 
 ### 前置要求
-你需要安装 [Node.js](https://nodejs.org/) (建议版本 v18 或更高)。
+你需要安装 [Node.js](https://nodejs.org/) (建议版本 v20 或更高，Google GenAI SDK 需要 Node 20+)。
 
 ### 安装步骤
 
@@ -81,27 +81,43 @@ Cloudflare Pages 是一个极佳的静态网站托管服务，速度快且在全
 3. 点击 **Create Application** -> **Pages** -> **Connect to Git**。
 4. 选择你的 GitHub 账号及本项目仓库。
 
-### 步骤 3: 配置构建设置 (Build Settings)
-在 "Set up builds and deployments" 页面，填写以下信息：
+### 步骤 3: 配置构建设置 (Build Settings) - **关键步骤**
+在 "Set up builds and deployments" 页面，**请手动修改以下设置**。
 
-*   **Framework preset**: 选择 `Vite` (如果没有 Vite 选项，选择 None 也可以，只要命令正确)。
-*   **Build command**: `npm run build`
-*   **Build output directory**: `dist`
+**即使没有 "Vite" 或 "None" 选项也不要紧，请忽略预设名字，直接手动修改下面的文本框：**
+
+1.  **Framework preset (框架预设)**: 随便选一个（例如 "React" 或 "Create React App"），或者选 "None"。
+2.  **Build command (构建命令)**: **必须手动修改为** `npm run build`
+    *   (如果默认是 `npx vitepress build`，请一定要改掉！)
+3.  **Build output directory (输出目录)**: **必须手动修改为** `dist`
+    *   (如果默认是 `.vitepress/dist`，请一定要改掉！)
 
 ### 步骤 4: 配置环境变量 (Environment Variables)
 在同一页面的 "Environment variables (advanced)" 部分：
 
-1.  添加 **Node 版本变量** (非常重要，防止构建失败)：
+1.  添加 **Node 版本变量** (非常重要，Google GenAI SDK 需要 Node 20+)：
     *   Variable name: `NODE_VERSION`
-    *   Value: `18.17.0` (或更高)
+    *   Value: `20`
 2.  添加 **API Key** (如果你仍使用 Gemini):
     *   Variable name: `API_KEY`
     *   Value: `你的_KEY`
-3.  如果你改用了 Spark Lite (见下文)，则添加 Spark 相关的 Key：
-    *   `SPARK_APPID` / `SPARK_API_SECRET` / `SPARK_API_KEY`
 
-### 步骤 5: 部署
-点击 **Save and Deploy**。等待几分钟，你的网站就会上线了。
+### 步骤 5: 部署与故障排除
+点击 **Save and Deploy**。
+
+**常见错误排除：**
+
+*   **错误信息**：`Executing user command: npx vitepress build`
+    *   **原因**：Cloudflare 误判了框架。
+    *   **解决**：回到 Settings -> Builds & deployments -> Edit，把 Build command 改为 `npm run build`。
+
+*   **错误信息**：`Output directory "dist" not found`
+    *   **原因**：构建命令执行错了，或者输出目录填错了。
+    *   **解决**：确保 Build command 是 `npm run build`，且 Output directory 是 `dist`。
+
+*   **错误信息**：`Error: Output directory ".vitepress/dist" not found`
+    *   **原因**：Cloudflare 默认填了错误的输出目录。
+    *   **解决**：回到 Settings，把 Build output directory 改为 `dist`。
 
 ---
 
