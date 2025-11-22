@@ -146,9 +146,10 @@ class SoundManager {
     const thrumLFOGain = ctx.createGain();
     thrumLFOGain.gain.value = 0.01; // Modulation depth (subtle)
     
-    // Connect LFO to Gain
+    // Connect LFO to Gain. Use simple connection, trusting modern API or casting if needed in strict TS.
     thrumLFO.connect(thrumLFOGain);
-    thrumLFOGain.connect(thrumGain.gain);
+    // Explicit cast to 'any' to avoid TypeScript complaints about connecting AudioNode to AudioParam in some envs
+    thrumLFOGain.connect(thrumGain.gain as any);
     
     thrumOsc.connect(thrumFilter);
     thrumFilter.connect(thrumGain);
@@ -177,7 +178,7 @@ class SoundManager {
     ventLFOGain.gain.value = 50; // Shift frequency by +/- 50Hz
 
     ventLFO.connect(ventLFOGain);
-    ventLFOGain.connect(ventFilter.frequency);
+    ventLFOGain.connect(ventFilter.frequency as any);
 
     const ventGain = ctx.createGain();
     ventGain.gain.value = 0.06;

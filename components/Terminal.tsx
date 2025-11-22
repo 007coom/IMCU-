@@ -99,7 +99,7 @@ export const Terminal: React.FC<TerminalProps> = ({ user, role, onLogout }) => {
 
   // App Management Functions
   const launchApp = (app: AppType, options: any = {}) => {
-    setProgramOptions(prev => ({ ...prev, ...options }));
+    setProgramOptions((prev: any) => ({ ...prev, ...options }));
     if (!openApps.includes(app)) {
       setOpenApps(prev => [...prev, app]);
     }

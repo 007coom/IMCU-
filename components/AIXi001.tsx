@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useState, useRef } from 'react';
 import { soundManager } from '../utils/sound';
 import { AppType, DirectoryNode, FileSystemNode, Contact, ClearanceLevel } from '../types';
@@ -455,12 +454,13 @@ export const AIXi001: React.FC<AIXi001Props> = ({
 
       liveSessionRef.current = session;
 
-      processorRef.current.onaudioprocess = (e) => {
+      // Explicitly type 'e' as 'any' to avoid TS build errors with deprecated ScriptProcessor
+      processorRef.current.onaudioprocess = (e: any) => {
          const inputData = e.inputBuffer.getChannelData(0);
          let sum = 0;
          for(let i=0; i<inputData.length; i+=100) sum += Math.abs(inputData[i]);
          const avg = sum / (inputData.length/100);
-         // Fixed: added arguments v and i to the map function
+         
          setAudioVisualizerData(prev => prev.map((v, i) => (i % 2 === 0) ? avg * 500 : v * 0.9)); 
 
          const b64Pcm = float32ToPcmBase64(inputData);
