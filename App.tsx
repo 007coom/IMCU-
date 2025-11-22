@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CRTLayout } from './components/CRTLayout';
 import { Terminal } from './components/Terminal';
@@ -116,6 +115,15 @@ const App: React.FC = () => {
      soundManager.playEnter(); 
   }
 
+  const ROLE_OPTIONS = [
+    { id: 'VISITOR', label: '访客', sub: 'VISITOR' },
+    { id: 'AGENT', label: '特工', sub: 'AGENT' },
+    { id: 'SCIENTIST', label: '研究员', sub: 'SCIENTIST' },
+    { id: 'DIRECTOR', label: '主管', sub: 'DIRECTOR' },
+    { id: 'Ω', label: 'Ω', sub: 'OMEGA' },
+    { id: 'CUSTOM', label: '自定义', sub: 'CUSTOM' },
+  ];
+
   if (viewState === 'POWER_OFF') {
     return (
       <div className="h-[100dvh] w-full bg-zinc-950 flex items-center justify-center font-vt323 relative overflow-hidden touch-none">
@@ -175,98 +183,128 @@ const App: React.FC = () => {
   if (viewState === 'LOGIN') {
     return (
       <CRTLayout isOn={true}>
-        <div className="flex flex-col items-center justify-center h-full w-full p-4">
-          <div className="border-2 border-amber-600 bg-black max-w-md w-full text-center relative shadow-[0_0_30px_rgba(217,119,6,0.15)] p-6 md:p-8">
-             <h1 className="text-4xl md:text-5xl mb-8 tracking-widest text-glow font-bold text-amber-500">IMCU 终端</h1>
+        <div className="flex flex-col items-center justify-center h-full w-full p-4 overflow-y-auto custom-scrollbar">
+          <div className="border-2 border-amber-600 bg-black max-w-2xl w-full text-center relative shadow-[0_0_30px_rgba(217,119,6,0.15)] p-6 md:p-8 my-auto">
+             <h1 className="text-4xl md:text-5xl mb-6 tracking-widest text-glow font-bold text-amber-500">IMCU 终端</h1>
              
-             <div className="text-left space-y-2 mb-8 border-l-2 border-amber-800 pl-4">
-               <p className="text-amber-700 text-sm">安全协议 (SECURITY PROTOCOL)</p>
-               <p className="text-red-500 animate-pulse">RESTRICTED AREA / 极密禁区</p>
+             <div className="text-left space-y-2 mb-8 border-l-4 border-amber-800 pl-4 bg-amber-900/10 py-2">
+               <div className="flex justify-between items-center">
+                 <p className="text-amber-700 text-sm font-bold">安全协议 (SECURITY PROTOCOL)</p>
+                 <p className="text-amber-900 text-xs">v.9.0.1</p>
+               </div>
+               <p className="text-red-500 animate-pulse tracking-wider">RESTRICTED AREA / 极密禁区</p>
              </div>
 
              <form onSubmit={handleLogin} className="space-y-6">
                <div>
-                 <label className="block text-amber-700 text-left text-sm mb-1">
-                    {loginStep === 'IDENTITY' ? '身份标识 (IDENTITY)' : '访问代码 (ACCESS CODE)'}
+                 <label className="block text-amber-700 text-left text-xs md:text-sm mb-2 uppercase tracking-wider">
+                    {loginStep === 'IDENTITY' ? '> 身份标识 (IDENTITY)' : '> 访问代码 (ACCESS CODE)'}
                  </label>
-                 <input 
-                   type={loginStep === 'PASSWORD' ? "password" : "text"}
-                   className="w-full bg-black border-b-2 border-amber-500 text-amber-300 text-base md:text-2xl p-2 focus:outline-none focus:border-amber-300 font-mono text-center uppercase"
-                   value={loginStep === 'IDENTITY' ? identity : password}
-                   onChange={(e) => {
-                     if(loginStep === 'IDENTITY') setIdentity(e.target.value);
-                     else setPassword(e.target.value);
-                     soundManager.playKeystroke();
-                   }}
-                   autoFocus
-                   placeholder={loginStep === 'IDENTITY' ? "输入姓名 / ENTER NAME" : "****"}
-                 />
+                 <div className="relative group">
+                    <input 
+                      type={loginStep === 'PASSWORD' ? "password" : "text"}
+                      className="w-full bg-black border-2 border-amber-800 text-amber-300 text-xl md:text-2xl p-3 focus:outline-none focus:border-amber-500 font-mono text-center uppercase transition-colors shadow-[inset_0_0_10px_rgba(0,0,0,0.8)] placeholder-amber-900/50"
+                      value={loginStep === 'IDENTITY' ? identity : password}
+                      onChange={(e) => {
+                        if(loginStep === 'IDENTITY') setIdentity(e.target.value);
+                        else setPassword(e.target.value);
+                        soundManager.playKeystroke();
+                      }}
+                      autoFocus
+                      placeholder={loginStep === 'IDENTITY' ? "ENTER NAME..." : "XXXX"}
+                    />
+                    <div className="absolute top-0 right-0 bottom-0 w-2 bg-amber-900/20 group-focus-within:bg-amber-500/20"></div>
+                 </div>
                </div>
 
-               {/* Role Selection Step */}
+               {/* Role Selection Step - Redesigned */}
                {loginStep === 'IDENTITY' && (
-                 <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-                   <label className="block text-amber-700 text-left text-sm mb-1 mt-4">
-                      职位 / 权限 (POSITION / ROLE)
+                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-4 border-t border-amber-900/30">
+                   <label className="block text-amber-700 text-left text-xs md:text-sm mb-3 uppercase tracking-wider">
+                      > 职位选择 (SELECT POSITION)
                    </label>
                    
                    {!customRoleMode ? (
-                      <select
-                        value={role}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === 'CUSTOM') {
-                                setCustomRoleMode(true);
-                                setRole('');
-                            } else {
-                                setRole(val);
-                            }
-                            soundManager.playKeystroke();
-                        }}
-                        className="w-full bg-black border-b-2 border-amber-500 text-amber-300 text-base p-2 focus:outline-none focus:border-amber-300 font-mono text-center uppercase appearance-none cursor-pointer hover:bg-amber-900/20"
-                      >
-                         <option value="VISITOR">访客 (VISITOR)</option>
-                         <option value="AGENT">特工 (AGENT)</option>
-                         <option value="SCIENTIST">研究员 (SCIENTIST)</option>
-                         <option value="DIRECTOR">主管 (DIRECTOR)</option>
-                         <option value="Ω">Ω (OMEGA)</option>
-                         <option value="CUSTOM">自定义 (CUSTOM)...</option>
-                      </select>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                         {ROLE_OPTIONS.map((opt) => (
+                           <button
+                             key={opt.id}
+                             type="button"
+                             onClick={() => {
+                               if (opt.id === 'CUSTOM') {
+                                   setCustomRoleMode(true);
+                                   setRole('');
+                               } else {
+                                   setRole(opt.id);
+                               }
+                               soundManager.playKeystroke();
+                             }}
+                             className={`
+                               relative p-3 border transition-all duration-200 flex flex-col items-center justify-center group
+                               ${role === opt.id 
+                                 ? 'bg-amber-500 text-black border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]' 
+                                 : 'bg-black/40 border-amber-800 text-amber-600 hover:border-amber-500 hover:text-amber-400 hover:bg-amber-900/20'
+                               }
+                             `}
+                           >
+                              {/* Tech Corners */}
+                              <div className={`absolute top-0 left-0 w-1 h-1 ${role === opt.id ? 'bg-black' : 'bg-amber-500'} transition-colors`}></div>
+                              <div className={`absolute bottom-0 right-0 w-1 h-1 ${role === opt.id ? 'bg-black' : 'bg-amber-500'} transition-colors`}></div>
+                              
+                              <span className="text-lg md:text-xl font-bold leading-none mb-1">{opt.label}</span>
+                              <span className={`text-[10px] uppercase tracking-wider ${role === opt.id ? 'text-black/70' : 'text-amber-800 group-hover:text-amber-600'}`}>{opt.sub}</span>
+                           </button>
+                         ))}
+                      </div>
                    ) : (
-                      <div className="relative">
-                         <input 
-                            type="text"
-                            className="w-full bg-black border-b-2 border-amber-500 text-amber-300 text-base p-2 focus:outline-none focus:border-amber-300 font-mono text-center uppercase"
-                            value={role}
-                            onChange={(e) => { setRole(e.target.value); soundManager.playKeystroke(); }}
-                            placeholder="ENTER ROLE..."
-                            autoFocus
-                         />
-                         <button 
-                           type="button"
-                           onClick={() => { setCustomRoleMode(false); setRole('VISITOR'); }}
-                           className="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-amber-700 hover:text-amber-500 px-2"
-                         >
-                            [RESET]
-                         </button>
+                      <div className="relative animate-in zoom-in-95 duration-300">
+                         <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <input 
+                                    type="text"
+                                    className="w-full bg-black border-2 border-amber-500 text-amber-300 text-lg p-2 focus:outline-none shadow-[0_0_15px_rgba(245,158,11,0.1)] font-mono text-center uppercase placeholder-amber-900"
+                                    value={role}
+                                    onChange={(e) => { setRole(e.target.value); soundManager.playKeystroke(); }}
+                                    placeholder="ENTER CUSTOM ROLE..."
+                                    autoFocus
+                                />
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-amber-500 animate-pulse">_</div>
+                            </div>
+                            <button 
+                              type="button"
+                              onClick={() => { setCustomRoleMode(false); setRole('VISITOR'); soundManager.playKeystroke(); }}
+                              className="px-4 border border-amber-700 text-amber-700 hover:bg-amber-900/20 hover:text-amber-500 hover:border-amber-500 transition-colors"
+                            >
+                                BACK
+                            </button>
+                         </div>
+                         <div className="text-xs text-amber-800 mt-2 text-center">
+                             * WARNING: Non-standard roles may trigger anomalous AI responses.
+                         </div>
                       </div>
                    )}
                  </div>
                )}
 
-               {loginError && <div className="text-red-500 text-sm font-bold animate-pulse">{loginError}</div>}
+               {loginError && (
+                  <div className="border border-red-900/50 bg-red-900/10 p-3 text-red-500 text-sm font-bold animate-pulse flex items-center justify-center gap-2">
+                     <span className="text-xl">!</span> {loginError}
+                  </div>
+               )}
 
                <button 
                   type="submit"
-                  className="w-full bg-amber-900/30 border border-amber-600 hover:bg-amber-600 hover:text-black text-amber-500 py-2 transition-colors mt-6"
+                  className="group w-full bg-amber-900/20 border-2 border-amber-600 hover:bg-amber-500 hover:text-black hover:border-amber-500 text-amber-500 py-3 md:py-4 transition-all duration-300 uppercase tracking-[0.2em] font-bold text-lg mt-6 relative overflow-hidden"
                >
-                  {loginStep === 'IDENTITY' ? '下一步 (NEXT)' : '授权登录 (AUTHENTICATE)'}
+                  <span className="relative z-10">{loginStep === 'IDENTITY' ? '下一步 // NEXT' : '授权登录 // AUTHENTICATE'}</span>
+                  {/* Hover Sweep Effect */}
+                  <div className="absolute inset-0 bg-amber-400/20 transform -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                </button>
              </form>
              
-             <div className="mt-6 text-xs text-amber-800">
-                提示: 默认访问代码为 IMCU<br/>
-                HINT: Default access code is IMCU
+             <div className="mt-8 pt-4 border-t border-amber-900/30 flex justify-between text-[10px] text-amber-900 uppercase font-mono">
+                <span>SECURE TERMINAL ACCESS</span>
+                <span>IMCU-NET // ENCRYPTED</span>
              </div>
           </div>
         </div>
