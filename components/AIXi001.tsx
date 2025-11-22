@@ -9,7 +9,7 @@ import { IconBiohazard, IconCircuit, IconDatabase, IconEye, IconHex, IconLock, I
 // Declare process for TypeScript compiler compatibility
 declare const process: any;
 
-// --- BUILT-IN CONFIGURATION ---
+// --- BUILT-IN CONFIGURATION (From Image) ---
 const DEFAULT_SPARK_CONFIG = {
   appId: "64da248e",
   apiSecret: "ODRhNjBkYzViMjk0NmU3NWRiNmRhMzE4",
@@ -203,6 +203,14 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       localStorage.setItem('IMCU_SPARK_DOMAIN', sparkDomain);
       soundManager.playLoginSuccess();
       setViewMode('DASHBOARD');
+  };
+
+  const loadBuiltInSparkDefaults = () => {
+      setSparkAppId(DEFAULT_SPARK_CONFIG.appId);
+      setSparkApiSecret(DEFAULT_SPARK_CONFIG.apiSecret);
+      setSparkApiKey(DEFAULT_SPARK_CONFIG.apiKey);
+      handleSparkVersionChange('v1.1'); // Default to Lite
+      soundManager.playKeystroke();
   };
   
   const handleSparkVersionChange = (v: SparkVersion) => {
@@ -653,7 +661,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
               
               {/* Provider Indicator */}
               <span className={`font-bold ${provider === 'SPARK' ? 'text-blue-400' : 'text-green-500'}`}>
-                  LINK: {provider} {provider === 'SPARK' && <span className="text-[10px] opacity-70">[{sparkVersion}]</span>}
+                  LINK: {provider} {provider === 'SPARK' && <span className="text-[10px] opacity-70">[{sparkVersion === 'v1.1' ? 'LITE' : sparkVersion}]</span>}
               </span>
 
               {/* Gemini Model Toggle (Only visible if Gemini) */}
@@ -732,7 +740,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                 <div className="mb-2 font-bold text-amber-500">核心消息 (MESSAGE OF THE DAY)</div>
                 <p>系统完整性校验通过。</p>
                 <p>当前提供商: <span className="text-amber-300">{provider}</span></p>
-                <p>当前模型: {provider === 'GEMINI' ? (chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash') : `iFLYTEK Spark ${sparkVersion}`}</p>
+                <p>当前模型: {provider === 'GEMINI' ? (chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash') : (sparkVersion === 'v1.1' ? 'iFLYTEK Spark Lite' : `iFLYTEK Spark ${sparkVersion}`)}</p>
                 <p>实时语音: {provider === 'GEMINI' ? 'AVAILABLE' : 'UNAVAILABLE (Spark)'}</p>
                 <button 
                     onClick={() => setViewMode('CONFIG')}
@@ -1140,6 +1148,14 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                             Auto-fills URL & Domain. Change this first, then edit below if needed.
                                         </div>
                                     </div>
+
+                                    {/* Quick Load Built-in Keys */}
+                                    <button 
+                                        onClick={loadBuiltInSparkDefaults}
+                                        className="w-full py-1 text-xs bg-blue-900/30 border border-blue-700 text-blue-400 hover:bg-blue-700 hover:text-white transition-colors mb-2"
+                                    >
+                                        [ LOAD BUILT-IN SPARK LITE KEYS ]
+                                    </button>
 
                                     {/* ADVANCED CONFIG */}
                                     <div className="border-t border-blue-900/50 pt-2 mt-2">
