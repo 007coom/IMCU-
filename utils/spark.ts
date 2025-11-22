@@ -67,9 +67,18 @@ export const sendSparkRequest = async (
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(url);
     let fullText = "";
-    
+    let hasError = false;
+
+    // Connection Timeout
+    const timeoutId = setTimeout(() => {
+      if (socket.readyState !== WebSocket.CLOSED) {
+        socket.close();
+        hasError = true;
+        reject("Connection Timed Out (30s limit)");
+      }
+    }, 30000);
+
     // Transform messages: Spark places system prompt in payload or as first message
-    // We will prepend system prompt as a user message with specific instruction for Lite compatibility
     const payloadMessages = [
         { role: "user", content: systemPrompt }, 
         ...messages
@@ -83,7 +92,7 @@ export const sendSparkRequest = async (
         },
         parameter: {
           chat: {
-            domain: "general", // Spark Lite usually uses 'general' or 'generalLite'
+            domain: "general", // Spark Lite uses 'general'
             temperature: 0.5,
             max_tokens: 2048
           }
@@ -98,34 +107,47 @@ export const sendSparkRequest = async (
     };
 
     socket.onmessage = (event) => {
-      const res = JSON.parse(event.data);
-      
-      if (res.header.code !== 0) {
-        socket.close();
-        reject(`Spark Error (${res.header.code}): ${res.header.message}`);
-        return;
-      }
+      try {
+        const res = JSON.parse(event.data);
+        
+        if (res.header.code !== 0) {
+          socket.close();
+          hasError = true;
+          reject(`Spark Error (${res.header.code}): ${res.header.message}`);
+          return;
+        }
 
-      if (res.payload && res.payload.choices && res.payload.choices.text) {
-        const content = res.payload.choices.text[0].content;
-        fullText += content;
-      }
+        if (res.payload && res.payload.choices && res.payload.choices.text) {
+          const content = res.payload.choices.text[0].content;
+          fullText += content;
+        }
 
-      if (res.header.status === 2) {
-        socket.close();
-        resolve(fullText);
+        // Status 2 means generation complete
+        if (res.header.status === 2) {
+          clearTimeout(timeoutId);
+          socket.close();
+          resolve(fullText);
+        }
+      } catch (e) {
+          console.error("Error parsing Spark response:", e);
       }
     };
 
     socket.onerror = (error) => {
+      clearTimeout(timeoutId);
+      hasError = true;
       socket.close();
-      reject("WebSocket Connection Error");
+      reject("WebSocket Connection Error - Check Console or Network status.");
     };
     
     socket.onclose = (event) => {
-        if (!fullText && event.code !== 1000) {
-            // If closed without result and not normal closure
-            // reject("Connection closed unexpectedly");
+        clearTimeout(timeoutId);
+        if (!fullText && !hasError) {
+            // If closed without result but also without explicit error frame (e.g. network drop)
+             reject("Connection closed unexpectedly without response.");
+        } else if (fullText && !hasError && event.code !== 1000) {
+             // If we got text but connection dropped weirdly, still resolve with what we have
+             resolve(fullText);
         }
     };
   });

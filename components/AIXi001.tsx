@@ -9,6 +9,13 @@ import { IconBiohazard, IconCircuit, IconDatabase, IconEye, IconHex, IconLock, I
 // Declare process for TypeScript compiler compatibility
 declare const process: any;
 
+// --- BUILT-IN CONFIGURATION ---
+const DEFAULT_SPARK_CONFIG = {
+  appId: "64da248e",
+  apiSecret: "ODRhNjBkYzViMjk0NmU3NWRiNmRhMzE4",
+  apiKey: "7867654a54e877de3d877134763c914c"
+};
+
 // --- TYPES & HELPERS ---
 
 interface AIXi001Props {
@@ -85,17 +92,18 @@ export const AIXi001: React.FC<AIXi001Props> = ({
   const [viewMode, setViewMode] = useState<'DASHBOARD' | 'CHAT' | 'DATABASE' | 'LIVE' | 'COMMS' | 'CONFIG'>('DASHBOARD');
   
   // --- API CONFIGURATION STATE ---
-  const [provider, setProvider] = useState<'GEMINI' | 'SPARK'>('GEMINI');
+  const [apiKey] = useState(process.env.API_KEY); 
+  // Default to SPARK if no Gemini key is found, otherwise default to GEMINI
+  const [provider, setProvider] = useState<'GEMINI' | 'SPARK'>(!process.env.API_KEY ? 'SPARK' : 'GEMINI');
   
   // Gemini State
-  const [apiKey] = useState(process.env.API_KEY); 
   const aiClient = useRef<GoogleGenAI | null>(null);
   const [chatModel, setChatModel] = useState<'FLASH' | 'PRO'>(initialModel || 'FLASH');
 
-  // Spark State
-  const [sparkAppId, setSparkAppId] = useState('');
-  const [sparkApiSecret, setSparkApiSecret] = useState('');
-  const [sparkApiKey, setSparkApiKey] = useState('');
+  // Spark State - Initialize with saved values or BUILT-IN DEFAULTS
+  const [sparkAppId, setSparkAppId] = useState(localStorage.getItem('IMCU_SPARK_APPID') || DEFAULT_SPARK_CONFIG.appId);
+  const [sparkApiSecret, setSparkApiSecret] = useState(localStorage.getItem('IMCU_SPARK_SECRET') || DEFAULT_SPARK_CONFIG.apiSecret);
+  const [sparkApiKey, setSparkApiKey] = useState(localStorage.getItem('IMCU_SPARK_KEY') || DEFAULT_SPARK_CONFIG.apiKey);
 
   // --- DASHBOARD STATE ---
   const [activeSubsystems, setActiveSubsystems] = useState({ neural: 0, defense: 0 });
@@ -154,17 +162,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       aiClient.current = new GoogleGenAI({ apiKey });
     }
     
-    // Load saved Spark credentials from local storage if available
-    const savedAppId = localStorage.getItem('IMCU_SPARK_APPID');
-    const savedSecret = localStorage.getItem('IMCU_SPARK_SECRET');
-    const savedKey = localStorage.getItem('IMCU_SPARK_KEY');
-    
-    if (savedAppId) setSparkAppId(savedAppId);
-    if (savedSecret) setSparkApiSecret(savedSecret);
-    if (savedKey) setSparkApiKey(savedKey);
-
-    // Auto-switch to Spark if configured and no Gemini Key
-    if (savedAppId && !apiKey) {
+    // Force provider to SPARK if Gemini API Key is missing
+    if (!apiKey) {
         setProvider('SPARK');
     }
 
@@ -262,7 +261,8 @@ export const AIXi001: React.FC<AIXi001Props> = ({
       soundManager.playLoginSuccess();
 
     } catch (error: any) {
-      setChatHistory(prev => [...prev, { role: 'model', text: `ERR: NETWORK_FAILURE // ${error}`, timestamp: new Date().toLocaleTimeString() }]);
+      console.error(error);
+      setChatHistory(prev => [...prev, { role: 'model', text: `ERR: NETWORK_FAILURE // ${error.message || error}`, timestamp: new Date().toLocaleTimeString() }]);
       soundManager.playLoginFail();
     } finally {
       setIsChatThinking(false);
@@ -699,7 +699,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                 <div className="mb-2 font-bold text-amber-500">核心消息 (MESSAGE OF THE DAY)</div>
                 <p>系统完整性校验通过。</p>
                 <p>当前提供商: <span className="text-amber-300">{provider}</span></p>
-                <p>当前模型: {provider === 'GEMINI' ? (chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash') : 'iFlytek Spark Lite'}</p>
+                <p>当前模型: {provider === 'GEMINI' ? (chatModel === 'PRO' ? 'Gemini 3.0 Pro' : 'Gemini 2.5 Flash') : 'iFLYTEK Spark V1.1'}</p>
                 <p>实时语音: {provider === 'GEMINI' ? 'AVAILABLE' : 'UNAVAILABLE (Spark)'}</p>
                 <button 
                     onClick={() => setViewMode('CONFIG')}
@@ -1117,7 +1117,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                                         />
                                     </div>
                                     <div className="text-[10px] text-blue-500/50 pt-1">
-                                        Credentials are saved to your browser's LocalStorage.
+                                        Default built-in keys active. Can be overridden. Saved to LocalStorage.
                                     </div>
                                 </div>
                             )}
