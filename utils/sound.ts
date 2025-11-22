@@ -124,6 +124,71 @@ class SoundManager {
     oscGain.connect(masterGain);
     osc.start(t);
     this.ambienceNodes.push(osc);
+
+    // 4. Mechanical Rhythm (Server Drive / Machinery)
+    // This creates a "chugging" sound like a hard drive or heavy machinery
+    const thrumOsc = ctx.createOscillator();
+    thrumOsc.type = 'sawtooth';
+    thrumOsc.frequency.value = 48; // Low pitch mechanical drone
+    
+    const thrumFilter = ctx.createBiquadFilter();
+    thrumFilter.type = 'lowpass';
+    thrumFilter.frequency.value = 200; // Muffle the harshness
+    
+    const thrumGain = ctx.createGain();
+    thrumGain.gain.value = 0.04; // Base volume
+
+    // LFO to create the rhythm
+    const thrumLFO = ctx.createOscillator();
+    thrumLFO.type = 'square'; // Sharp transitions for mechanical feel
+    thrumLFO.frequency.value = 4; // 4 cycles per second
+    
+    const thrumLFOGain = ctx.createGain();
+    thrumLFOGain.gain.value = 0.01; // Modulation depth (subtle)
+    
+    // Connect LFO to Gain
+    thrumLFO.connect(thrumLFOGain);
+    thrumLFOGain.connect(thrumGain.gain);
+    
+    thrumOsc.connect(thrumFilter);
+    thrumFilter.connect(thrumGain);
+    thrumGain.connect(masterGain);
+    
+    thrumOsc.start(t);
+    thrumLFO.start(t);
+    this.ambienceNodes.push(thrumOsc, thrumLFO);
+
+    // 5. Ventilation / Breathing (Slow Cycle)
+    const ventSource = ctx.createBufferSource();
+    ventSource.buffer = noiseBuffer;
+    ventSource.loop = true;
+    
+    const ventFilter = ctx.createBiquadFilter();
+    ventFilter.type = 'bandpass';
+    ventFilter.frequency.value = 100;
+    ventFilter.Q.value = 1;
+
+    // Modulate frequency to simulate air movement
+    const ventLFO = ctx.createOscillator();
+    ventLFO.type = 'sine';
+    ventLFO.frequency.value = 0.2; // Very slow cycle (5 seconds)
+
+    const ventLFOGain = ctx.createGain();
+    ventLFOGain.gain.value = 50; // Shift frequency by +/- 50Hz
+
+    ventLFO.connect(ventLFOGain);
+    ventLFOGain.connect(ventFilter.frequency);
+
+    const ventGain = ctx.createGain();
+    ventGain.gain.value = 0.06;
+
+    ventSource.connect(ventFilter);
+    ventFilter.connect(ventGain);
+    ventGain.connect(masterGain);
+
+    ventSource.start(t);
+    ventLFO.start(t);
+    this.ambienceNodes.push(ventSource, ventLFO);
   }
 
   playBootSequence() {
