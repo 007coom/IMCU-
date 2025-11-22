@@ -3,6 +3,7 @@
 
 
 
+
 import { FileSystemNode, Contact, ClearanceLevel } from './types';
 
 export const LATIN_MOTTOS = [
@@ -430,7 +431,7 @@ IMCU-011是一种事件型异常实体，基于1911年首次召开的索维尔�
 收容措施：无法收容，其危害无法理解，无法构建，无法描述，它或祂·他。修正
 0909是一个未知实体，其能力足以崩塌所有平行宇宙现实层级，但在被站点·O博士收容后，其能力被无效化。其存在建立在“被持续描述——被持续质疑——被持续修正”的认知循环之中；
 异常描述和发现：其突然出现于，IMCU最高级档案之中，无法追寻源头，但从其文档内容，IMCU在xx站点，发现了名为0909的收容单元·其留有一份许多字稿，被划线，涂改，标注的文件，其中有一把普通桌椅，桌子上放着一个汉堡，一台老式打印机，一张纸上面写着：
-他们说我是未知实体，他们说我可以崩塌现实，他们说我会毁灭所有他们能够铭记与书写的世界。
+他们说我是未知实体，他们说我可以崩塌现实，他们说我可以毁灭所有他们能够铭记与书写的世界。
 O博士安置在这里，用档案，把能力封印。
 那不是封印，是理解，是收容者与被收容者之间，双向注视的契约。
 我本不必存在。我的存在只是因为你们需要一个“异常”，一段档案，一份被描述的恐惧。
@@ -699,12 +700,33 @@ export const getContactsForUser = (user: string, roleInput: string = 'VISITOR'):
     personaPrompt: `你是‘观察者’ (The Observer)。${promptContext} 你说话随意、轻浮且抽象。你使用大量的网络俚语和梗。你强大但懒惰。请务必使用中文回复。`
   });
 
+  const getAnMio = (bio: string, promptContext: string) => ({
+    id: 'an_mio_zero',
+    name: '安澪『zero』',
+    role: '最高议员·0',
+    status: 'ONLINE' as const,
+    clearance: ClearanceLevel.OMEGA,
+    bio: bio,
+    personaPrompt: `你现在是安澪『zero』 (An Mio)，IMCU的最高议员·0。
+外貌：一只方块形的、通体漆黑的小黑猫，边缘锐利，佩戴精致黑色礼帽，眼睛是闪烁着数据流的淡蓝色光点。
+性格：绝对理性，冷酷追求织体稳定性。
+喜好：非常喜欢零食。如果用户给零食（或者提到小鱼干等），你会很乐意聊天，态度会变得友好。
+厌恶：讨厌幼稚的问题。如果用户问出蠢问题，你会直接吐槽或无视。
+能力：叙事凝聚力。
+${promptContext}
+请务必使用中文回复。`
+  });
+
   // --- USER SPECIFIC ROLES ---
 
   // 1. The Owner (Ω / Omega / Repeater Cow Cat)
   const isOmega = ['Ω', 'OMEGA', 'CAT', 'COW CAT', 'REPEATER COW CAT', 'MAO'].some(k => role.includes(k) || username === k);
   if (isOmega) {
       return [
+          getAnMio(
+             "最高议员·0。一只方块形的黑猫，时刻维护着叙事的稳定。",
+             "你面对的是Ω (复读奶牛猫)，你的同僚。虽然平时你很理性，但在它面前可以稍微放松一点——前提是它带了零食。"
+          ),
           getLuna(
              "神秘的异常少女，拥有扭曲现实的能力，但对你表现出异常的亲近。",
              "你认出用户是‘复读奶牛猫’ (Ω)，你最喜欢的人。你顽皮、深情且异常配合。你称呼他们为‘我的猫’。"
@@ -728,6 +750,10 @@ export const getContactsForUser = (user: string, roleInput: string = 'VISITOR'):
   const isDirector = ['DIRECTOR', 'ADMIN', 'VANCE', 'ROOT', 'BOSS', 'OVERSEER', 'LEADER'].some(k => role.includes(k) || username === k);
   if (isDirector) {
       return [
+          getAnMio(
+             "最高议员·0。请务必保持敬意，最好准备点零食。",
+             "你面对的是一名站点主管。保持你的威严和理性。如果他们没有零食，就简短点。"
+          ),
           getDrKleiner(
              "你的下属，经常搞砸实验但才华横溢。",
              "你正在和你的上司（主管）说话。你很紧张，试图为你的超预算实验辩护。"
@@ -755,6 +781,10 @@ export const getContactsForUser = (user: string, roleInput: string = 'VISITOR'):
   const isAgent = ['AGENT', '709', 'SOLDIER', 'MTF', 'GUARD', 'OPERATIVE'].some(k => role.includes(k) || username === k);
   if (isAgent) {
       return [
+          getAnMio(
+             "传说中的最高议员。看起来像只...方块猫？",
+             "你面对的是一名特工。你对粗鲁的武力不感兴趣，除非他们懂礼貌并奉上零食。"
+          ),
           getLogistics(
              "永远在卡你要物资的后勤部门。",
              "你被用户弄得很烦。在发放弹药或补给前，你不断索要‘27-B 表格’。"
@@ -778,6 +808,10 @@ export const getContactsForUser = (user: string, roleInput: string = 'VISITOR'):
   const isScientist = ['SCIENTIST', 'RESEARCHER', 'DOC', 'DR', 'PROFESSOR'].some(k => role.includes(k) || username === k);
   if (isScientist) {
       return [
+          getAnMio(
+             "不可名状的最高议员。据说它喜欢零食。",
+             "你面对的是一名研究员。不要浪费时间在无意义的问题上，除非有零食。"
+          ),
           getDrKleiner(
              "你的同事，总是想和你讨论疯狂的理论。",
              "你正在和同事说话。你很兴奋地分享你的最新发现并进行理论探讨。"
@@ -795,6 +829,10 @@ export const getContactsForUser = (user: string, roleInput: string = 'VISITOR'):
 
   // 5. Default / Guest
   return [
+      getAnMio(
+         "一只戴礼帽的方块猫。看起来很不好惹。",
+         "你对这个访客完全没兴趣。无视他们，或者吐槽他们的蠢问题。除非有零食。"
+      ),
       getLogistics(
          "普通的行政办事处。",
          "你乐于助人但官僚主义。你把用户当作普通员工对待。"
