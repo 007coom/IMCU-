@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { soundManager } from '../utils/sound';
 import { AppType, DirectoryNode, FileSystemNode, Contact, ClearanceLevel } from '../types';
@@ -560,7 +559,7 @@ export const AIXi001: React.FC<AIXi001Props> = ({
               
               {/* Provider Indicator */}
               <span className={`font-bold ${provider === 'SPARK' ? 'text-blue-400' : 'text-green-500'}`}>
-                  LINK: {provider === 'SPARK' && sparkVersion === 'v1.1' ? 'iFLYTEK SPARK LITE (DEFAULT)' : provider}
+                  LINK: {provider === 'SPARK' && sparkVersion === 'v1.1' ? 'iFLYTEK SPARK LITE' : provider}
                   {provider === 'SPARK' && sparkVersion !== 'v1.1' && <span className="text-[10px] opacity-70">[{sparkVersion}]</span>}
               </span>
 
@@ -951,145 +950,52 @@ export const AIXi001: React.FC<AIXi001Props> = ({
                         <IconCircuit className="w-6 h-6" /> 系统配置 (SYSTEM CONFIGURATION)
                     </h2>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Provider Selection */}
-                        <div className="space-y-4">
-                            <label className="block text-sm text-amber-700 font-bold">AI 服务提供商 (PROVIDER)</label>
-                            <div className="flex flex-col gap-2">
-                                <button 
-                                    onClick={() => setProvider('SPARK')}
-                                    className={`p-4 border text-left transition-all ${provider === 'SPARK' ? 'bg-blue-600 text-white border-blue-600' : 'border-amber-800 text-amber-600 hover:border-blue-400 hover:text-blue-400'}`}
-                                >
-                                    <div className="font-bold text-lg">iFLYTEK SPARK (讯飞星火)</div>
-                                    <div className="text-xs opacity-70">Recommended (Default). Text Only.</div>
-                                </button>
-                                <button 
-                                    onClick={() => setProvider('GEMINI')}
-                                    className={`p-4 border text-left transition-all ${provider === 'GEMINI' ? 'bg-amber-600 text-black border-amber-600' : 'border-amber-800 text-amber-600 hover:border-amber-500'}`}
-                                >
-                                    <div className="font-bold text-lg">GOOGLE GEMINI</div>
-                                    <div className="text-xs opacity-70">Requires VPN in China.</div>
-                                </button>
+                    {/* Provider Selection */}
+                    <div className="space-y-4">
+                        <label className="block text-sm text-amber-700 font-bold">AI 模型选择 (MODEL SELECTION)</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button 
+                                onClick={() => { setProvider('SPARK'); soundManager.playKeystroke(); }}
+                                className={`p-6 border flex flex-col items-center justify-center gap-2 transition-all ${provider === 'SPARK' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'border-amber-800/50 text-amber-700 hover:border-blue-900 hover:text-blue-800'}`}
+                            >
+                                <div className="font-bold text-xl">iFLYTEK SPARK</div>
+                                <div className="text-xs opacity-70">讯飞星火 (Lite)</div>
+                                {provider === 'SPARK' && <div className="mt-2 text-[10px] bg-blue-500 text-black px-2 py-0.5 rounded font-bold">ACTIVE</div>}
+                            </button>
+                            <button 
+                                onClick={() => { setProvider('GEMINI'); soundManager.playKeystroke(); }}
+                                className={`p-6 border flex flex-col items-center justify-center gap-2 transition-all ${provider === 'GEMINI' ? 'bg-amber-600/20 border-amber-500 text-amber-400' : 'border-amber-800/50 text-amber-700 hover:border-amber-600 hover:text-amber-600'}`}
+                            >
+                                <div className="font-bold text-xl">GOOGLE GEMINI</div>
+                                <div className="text-xs opacity-70">Gemini Pro/Flash</div>
+                                {provider === 'GEMINI' && <div className="mt-2 text-[10px] bg-amber-500 text-black px-2 py-0.5 rounded font-bold">ACTIVE</div>}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Detailed Config Status (Simplified) */}
+                    <div className="mt-6">
+                        {provider === 'GEMINI' ? (
+                            <div className="p-4 border border-amber-900/50 bg-amber-900/10 text-amber-700 text-sm">
+                                <p className="mb-2 font-bold">[ SYSTEM STATUS ]</p>
+                                <p>API Key Configured: <span className={apiKey ? "text-green-500" : "text-red-500"}>{apiKey ? "YES" : "NO"}</span></p>
+                                <p className="text-xs mt-2 opacity-50">Key is loaded from environment variables.</p>
                             </div>
-                        </div>
-
-                        {/* Credential Inputs */}
-                        <div className="space-y-4">
-                            {provider === 'GEMINI' ? (
-                                <div className="p-4 border border-amber-900/50 bg-amber-900/10 text-amber-700 text-sm">
-                                    <p className="mb-2">Gemini API Key is configured via Environment Variables (Vercel/Env).</p>
-                                    <p>Current Status: <span className={apiKey ? "text-green-500" : "text-red-500 animate-pulse"}>{apiKey ? "CONFIGURED" : "MISSING"}</span></p>
-                                    {!apiKey && (
-                                        <button 
-                                            onClick={loadBuiltInSparkDefaults}
-                                            className="mt-4 w-full py-2 bg-red-900/30 border border-red-500 text-red-400 hover:bg-red-600 hover:text-black font-bold text-xs tracking-wide transition-colors animate-pulse"
-                                        >
-                                            [ ALERT: KEY MISSING - AUTO-SWITCH TO SPARK ]
-                                        </button>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="space-y-3 animate-in fade-in">
-                                    {/* Spark Version Selector */}
-                                    <div>
-                                        <label className="block text-xs text-blue-400 mb-1 font-bold">SPARK VERSION (PRESET)</label>
-                                        <select 
-                                            value={sparkVersion}
-                                            onChange={(e) => handleSparkVersionChange(e.target.value as SparkVersion)}
-                                            className="w-full bg-zinc-900 border border-blue-900 text-blue-300 p-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
-                                        >
-                                            <option value="v1.1">Spark Lite (V1.1) - Free</option>
-                                            <option value="v2.1">Spark V2.0</option>
-                                            <option value="v3.1">Spark Pro (V3.0)</option>
-                                            <option value="v3.5">Spark Max (V3.5)</option>
-                                            <option value="v4.0">Spark 4.0 Ultra</option>
-                                        </select>
-                                        <div className="text-[10px] text-blue-500/50 pt-1">
-                                            Auto-fills URL & Domain. Change this first, then edit below if needed.
-                                        </div>
-                                    </div>
-
-                                    {/* Quick Load Built-in Keys */}
-                                    <button 
-                                        onClick={loadBuiltInSparkDefaults}
-                                        className="w-full py-2 text-xs bg-blue-900/30 border border-blue-700 text-blue-400 hover:bg-blue-700 hover:text-white transition-colors mb-4 font-bold tracking-wide"
-                                    >
-                                        [ LOAD BUILT-IN SPARK LITE KEYS (FIX CONFIG) ]
-                                    </button>
-
-                                    {/* ADVANCED CONFIG */}
-                                    <div className="border-t border-blue-900/50 pt-2 mt-2">
-                                        <label className="block text-xs text-blue-300 mb-1 font-bold">ADVANCED ENDPOINT CONFIG</label>
-                                        <div className="space-y-2">
-                                            <div>
-                                                <label className="block text-[10px] text-blue-500">Service URL</label>
-                                                <input 
-                                                    value={sparkServiceUrl}
-                                                    onChange={(e) => setSparkServiceUrl(e.target.value)}
-                                                    className="w-full bg-black border border-blue-800 text-blue-300 p-1 font-mono text-xs focus:border-blue-500 focus:outline-none"
-                                                    type="text"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-[10px] text-blue-500">API Domain (Critical for Auth Error 11200)</label>
-                                                <input 
-                                                    value={sparkDomain}
-                                                    onChange={(e) => setSparkDomain(e.target.value)}
-                                                    className="w-full bg-black border border-blue-800 text-blue-300 p-1 font-mono text-xs focus:border-blue-500 focus:outline-none"
-                                                    type="text"
-                                                    placeholder="e.g., general, lite, generalv2"
-                                                />
-                                                <div className="text-[9px] text-amber-600 pt-1">
-                                                    If you get error 11200, verify if domain should be 'general' or 'lite'. (Lite requires 'lite')
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-blue-900/50 pt-2 mt-2">
-                                        <label className="block text-xs text-blue-400 mb-1">APPID</label>
-                                        <input 
-                                            value={sparkAppId}
-                                            onChange={(e) => setSparkAppId(e.target.value)}
-                                            className="w-full bg-zinc-900 border border-blue-900 text-blue-300 p-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
-                                            type="text"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-blue-400 mb-1">APISecret</label>
-                                        <input 
-                                            value={sparkApiSecret}
-                                            onChange={(e) => setSparkApiSecret(e.target.value)}
-                                            className="w-full bg-zinc-900 border border-blue-900 text-blue-300 p-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
-                                            type="password"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-blue-400 mb-1">APIKey</label>
-                                        <input 
-                                            value={sparkApiKey}
-                                            onChange={(e) => setSparkApiKey(e.target.value)}
-                                            className="w-full bg-zinc-900 border border-blue-900 text-blue-300 p-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
-                                            type="password"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        ) : (
+                            <div className="p-4 border border-blue-900/50 bg-blue-900/10 text-blue-400 text-sm">
+                                <p className="mb-2 font-bold">[ SYSTEM STATUS ]</p>
+                                <p>Using built-in secure channel (Lite).</p>
+                                <p className="text-xs mt-2 opacity-50">Connection optimized for local region.</p>
+                            </div>
+                        )}
                     </div>
 
                     <div className="mt-8 flex justify-end gap-4">
                          <button 
-                            onClick={() => setViewMode('DASHBOARD')}
+                            onClick={() => { setViewMode('DASHBOARD'); soundManager.playKeystroke(); }}
                             className="border border-amber-800 text-amber-700 px-6 py-2 hover:bg-amber-900/20"
                          >
-                            CANCEL
-                         </button>
-                         <button 
-                            onClick={saveSparkCredentials}
-                            className={`px-6 py-2 font-bold text-black transition-all ${provider === 'SPARK' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-amber-600 hover:bg-amber-500'}`}
-                         >
-                            SAVE CONFIGURATION
+                            RETURN
                          </button>
                     </div>
                 </div>
